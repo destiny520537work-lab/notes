@@ -1,0 +1,690 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>多agent协调图解</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap">
+<style>
+/* 照 wenhaochai.com/blogs/predictable-swarm-scaling.html 的 token 和排版抄的（他 2026-10-07 的版本：白纸、Google 灰线、oxblood 红）。
+   单一浅色主题，不做明暗、不做多配色。中文衬线配 Noto Serif SC，中文无衬线配 PingFang。 */
+:root{
+  --paper:#FFFFFF;--paper-2:#F8F9FA;
+  --ink:#15141A;--ink-2:#2A2830;--ink-3:#5E5B66;--ink-4:#6A6674;
+  --rule:#DADCE0;--rule-2:#E8EAED;
+  --accent:#7A1A1A;--accent-hover:#5C1212;--accent-soft:rgba(122,26,26,.08);--link-line:rgba(122,26,26,.38);
+  /* 图表色：Google 四色，参考灰，"最好"用红 */
+  --ch-s1:#4285F4;--ch-s2:#EA4335;--ch-s3:#F29900;--ch-s4:#188038;--ch-ref:#8A8791;--ch-best:#EA4335;
+  --ch-grid:var(--rule-2);--ch-axis:var(--rule);
+  --ch-soft-1:rgba(66,133,244,.10);--ch-soft-2:rgba(234,67,53,.12);--ch-soft-4:rgba(24,128,56,.10);--ch-soft-ref:rgba(138,135,145,.18);
+  --font-serif:'Newsreader','Noto Serif SC','Songti SC','Iowan Old Style',Georgia,serif;
+  --font-sans:'Instrument Sans',-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',Arial,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --font-chart:var(--font-sans);
+  --max:720px;--gutter:clamp(20px,4vw,56px);
+  color-scheme:light;
+}
+html,body{margin:0;padding:0;overflow-x:clip}
+body{font-family:var(--font-sans);background:var(--paper);color:var(--ink);line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.ar-page{max-width:var(--max);margin:0 auto;padding:0 var(--gutter) 96px}
+.ar-crumb{font-family:var(--font-mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin:36px 0 44px;display:flex;gap:10px}
+.ar-eyebrow{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin-bottom:22px}
+.ar-head h1{font-family:var(--font-serif);font-weight:400;font-size:clamp(36px,4.6vw,52px);line-height:1.12;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.ar-standfirst{font-family:var(--font-serif);font-size:clamp(17px,1.5vw,20px);line-height:1.6;color:var(--ink-2);margin:18px 0 0}
+.ar-authors{display:flex;align-items:center;gap:12px;margin:32px 0 0;font-family:var(--font-sans);font-size:15px;color:var(--ink)}
+.ar-main p{font-family:var(--font-serif);font-size:18px;line-height:1.75;color:var(--ink-2);margin:0 0 20px}
+.ar-main ul:not([class]),.ar-main ol:not([class]),.ar-main blockquote{font-family:var(--font-serif);font-size:18px;line-height:1.75;color:var(--ink-2)}
+.ar-main ul:not([class]) li,.ar-main ol:not([class]) li{margin:0 0 8px}
+.ar-main h2{font-family:var(--font-serif);font-weight:500;font-size:clamp(24px,2.4vw,30px);letter-spacing:-.015em;line-height:1.25;margin:46px 0 16px;padding-top:20px;border-top:1px solid var(--rule);text-wrap:balance}
+.ar-main h3{font-family:var(--font-serif);font-weight:500;font-size:21px;letter-spacing:-.01em;margin:32px 0 12px}
+.ar-main a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--link-line);padding:0 1px;transition:color .15s,border-color .15s}
+.ar-main a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.ar-main strong{font-weight:600;color:var(--ink)}
+.ar-main code{font-family:var(--font-mono);font-size:.82em;background:var(--paper-2);border:1px solid var(--rule-2);border-radius:3px;padding:1px 5px}
+.ar-main pre{background:var(--paper-2);border:1px solid var(--rule);border-radius:2px;padding:16px 18px;margin:0 0 22px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.65;color:var(--ink-2)}
+.ar-main .key{font-family:var(--font-serif);font-size:18px;line-height:1.6;color:var(--ink);border-left:2px solid var(--accent);padding:2px 0 2px 16px;margin:0 0 20px}
+/* 图：透明底，画布一圈细灰线，标题 sans 17/600，副题 sans 14 灰，图注 sans 14 灰 */
+figure.viz{position:relative;margin:36px 0;padding:0;background:transparent}
+.viz .vh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.viz h4{font-family:var(--font-chart);font-size:17px;font-weight:600;line-height:1.3;margin:0 0 4px;color:var(--ink)}
+.viz .sub{font-family:var(--font-chart);font-size:14px;line-height:1.45;color:var(--ink-3);margin:0 0 14px}
+.viz canvas{display:block;width:100%;border:1px solid var(--rule-2);border-radius:2px}
+.viz svg{width:100%;height:auto;display:block;overflow:visible;font-family:var(--font-chart)}
+.viz svg text{font-family:var(--font-chart)}
+.viz figcaption{font-family:var(--font-sans);font-size:14px;line-height:1.5;color:var(--ink-3);padding-top:12px}
+.viz .legend{display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;font-family:var(--font-chart);font-size:13px;color:var(--ink-2);margin:10px 0 0}
+.viz .legend .li{display:inline-flex;align-items:center;gap:6px}
+.viz .legend .sw{width:12px;height:3px;border-radius:2px}
+.viz .legend .dt{width:10px;height:10px;border-radius:50%}
+.viz .legend .lk{width:14px;height:0;border-top:3px solid;border-radius:2px}
+.viz table{width:100%;border-collapse:collapse;font-family:var(--font-chart);font-size:13.5px;margin:6px 0 0}
+.viz th,.ar-main table th{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:500;color:var(--ink-3);text-align:left;padding:8px;border-bottom:1px solid var(--ink)}
+.viz td,.ar-main table td{padding:8px;border-bottom:1px solid var(--rule-2);vertical-align:top;font-variant-numeric:tabular-nums}
+.ar-main table{width:100%;border-collapse:collapse;font-family:var(--font-chart);font-size:14px;margin:0 0 22px}
+/* 控件：小号大写 mono，2px 圆角，悬停变红 */
+.fx-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.fx-btn,.viz .tgl{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:5px 10px;cursor:pointer}
+.fx-btn:hover,.viz .tgl:hover{color:var(--accent);border-color:var(--accent)}
+.fx-btn[aria-selected="true"],.fx-btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.fx-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fx-readouts{display:flex;flex-wrap:wrap;gap:5px 16px;margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.fx-readouts b{font-weight:600;color:var(--ink)}
+.fx-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+@media (max-width:640px){.fx-two{grid-template-columns:1fr}}
+.fx-tick{fill:var(--ink-3);font-size:12px;font-family:var(--font-mono),monospace;font-variant-numeric:tabular-nums}
+.fx-axis-title{fill:var(--ink);font-size:13.5px;font-weight:500;font-family:var(--font-sans),sans-serif}
+.lbl{font-family:var(--font-mono);font-size:11.5px;fill:var(--ink-2);font-variant-numeric:tabular-nums}
+.lbl.strong{fill:var(--ink);font-weight:500}
+/* 脚注与来源 */
+.ar-notes ol{list-style:none;padding:0;margin:0}
+.ar-notes li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--rule-2);font-family:var(--font-serif);font-size:15px;line-height:1.55;color:var(--ink-2)}
+.ar-notes li>b{font-family:var(--font-mono);font-weight:500;font-size:12px;color:var(--accent);padding-top:2px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* 页面本地：JS 里用的 --a/--b/--mute 映射到他的图表色 */
+:root{--a:var(--ch-s1);--a-soft:var(--ch-soft-1);--b:var(--ch-best);--b-soft:var(--ch-soft-2);--mute:var(--ch-ref);--mute-soft:var(--ch-soft-ref);--surface:var(--paper);--mono:var(--font-mono)}
+.ar-head{margin-top:40px}
+.standfirst-list{margin:26px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px}
+.standfirst-list li{font-family:var(--font-serif);font-size:clamp(17px,1.5vw,19px);line-height:1.6;color:var(--ink-2);display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.standfirst-list li b{font-weight:600;color:var(--ink)}
+.standfirst-list li .n{font-family:var(--font-mono);font-size:12px;color:var(--accent);padding-top:5px}
+.grid{display:flex;flex-direction:column;gap:6px}
+.grid>*{min-width:0}
+.notes{display:flex;flex-direction:column;gap:6px}
+.notes ul,.notes ol{margin:0 0 20px;padding-left:1.2em}
+.viz canvas{height:auto}
+.legend{display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;font-family:var(--font-chart);font-size:13px;color:var(--ink-2);margin:10px 0 0}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:-1px;margin-right:6px}
+.legend .ln{display:inline-block;width:14px;height:0;border-top:3px solid;border-radius:2px;vertical-align:3px;margin-right:6px}
+.legend .ln.dash{border-top-style:dashed;border-top-width:2px}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+@media (max-width:640px){.mini{grid-template-columns:1fr}}
+.mini>div{display:flex;flex-direction:column;gap:6px;min-width:0}
+.mini span{font-family:var(--font-chart);font-size:13px;color:var(--ink-3)}
+.mini svg,.mini canvas{width:100%}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.tablewrap{overflow-x:auto;margin:0 0 22px}
+td.miss{color:var(--ink-4)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px 24px;margin:0 0 28px}
+.cards>div{border-top:1px solid var(--rule);padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.cards .t{font-family:var(--font-serif);font-weight:500;font-size:18px;color:var(--ink)}
+.cards .s{font-family:var(--font-serif);font-size:15.5px;line-height:1.55;color:var(--ink-2)}
+.cards .src{font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:.02em}
+.ar-main .lead{font-family:var(--font-serif);font-size:18px;line-height:1.75;color:var(--ink-2);margin:0 0 20px}
+footer.ar-foot{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-family:var(--font-sans);font-size:13px;color:var(--ink-3);line-height:1.8}
+footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);text-decoration:none}
+.stall{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{stroke-opacity:1}50%{stroke-opacity:.25}}
+.axis text{font-family:var(--font-mono);font-size:11px;fill:var(--ink-3)}
+.axis line,.axis path{stroke:var(--rule);stroke-width:1}
+.ttl{font-family:var(--font-chart);font-size:12.5px;fill:var(--ink-3)}
+</style>
+
+<div class="ar-page">
+<header class="ar-head">
+  <div class="ar-eyebrow">pingce · 4.3 · 2026-10-09</div>
+  <h1>多agent怎么协调，什么时候别用</h1>
+  <p class="ar-standfirst">两篇新东西放一起看：Chai的swarm模拟（2026-09-27）说清了「人多为什么不线性变快」，LATTE（arXiv 2605.06320）用300次真实验说清了「共享一张会变的任务图为什么赢」。页面上的动画是按Chai的规则自己复现的模拟，数字标了出处。</p>
+</header>
+
+<ol class="standfirst-list">
+  <li><span class="n">01</span><span><b>加人对「做完多少」有用，对「做到多好」帮助小。</b>最好的结果卡在那一条必须一步步走的链上，64人到半覆盖快28倍，到最优解只快12倍。</span></li>
+  <li><span class="n">02</span><span><b>协调有成本，组越大成本越高。</b>一个64人的大组平均到不了0.95，8个8人的小组0.13T₁就到。</span></li>
+  <li><span class="n">03</span><span><b>让团队共同维护一张会变的任务图，</b>比固定领队分配高10个点，比各干各的高6个点，比固定流水线高46个点，token只用一半。</span></li>
+</ol>
+<main class="ar-main">
+
+<!-- 0 开场动画 -->
+<section class="ar-sec" id="s0">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">0</span>同一张任务图，1个agent和4个agent</h2>
+  <div class="grid">
+    <figure class="viz" id="f-open">
+      <canvas height="300" aria-label="任务DAG，节点随时间点亮"></canvas>
+      <div class="mini">
+        <div><span>做完多少步（coverage）</span><svg viewBox="0 0 300 120" class="chart" data-k="cov"></svg></div>
+        <div><span>做出的最好结果（best score）</span><svg viewBox="0 0 300 120" class="chart" data-k="best"></svg></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--mute)"></i>1个agent</span><span><i style="background:var(--a)"></i>4个agent，一个协调者派活</span><span><i style="background:var(--b)"></i>目前最好的一步</span></div>
+      <div class="fx-row"></div>
+      <figcaption>随机生成一张40步左右的小DAG，按Chai的规则（每步要等所有前置做完；agent永远取自己列表里最深的一步；协调者在有人空出来时派一个随机就绪步骤）先跑1个agent，再跑4个。横轴是单agent跑完全部步骤的时间T₁。</figcaption>
+    </figure>
+    <div class="notes">
+      <p>左边是任务图在一步步点亮，右边两条曲线是这次运行的分数。看两件事：</p>
+      <ul>
+        <li><b>coverage那条，4个agent明显提前。</b>能并行的步骤多，人多就快。</li>
+        <li><b>best score那条，领先少得多。</b>最好的结果在图的深处，要沿一条链一步步走下去，人多绕不过去。</li>
+      </ul>
+      <p class="key">多agent赚不赚钱，先看任务是宽还是窄。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 1 任务长什么样 -->
+<section class="ar-sec" id="s1">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">1</span>为什么能把一个任务画成图</h2>
+  <div class="grid">
+    <figure class="viz" id="f-grow">
+      <canvas height="260" aria-label="任务DAG逐层生长"></canvas>
+      <div class="legend"><span><i style="background:var(--a)"></i>颜色越深这一步的值越高</span><span><i style="background:var(--b)"></i>目前最好的一步</span></div>
+      <div class="fx-row"></div>
+      <figcaption>生成规则照Chai：每一步是上一层某一步的变体，父节点改进越大被选中越多（概率∝e^{1.4δ}）；46%的步骤再合并前面几个改动；值等于最好父节点的值加一个随深度变小的随机改进。他的生成器拟合自两张真实实验记录（搜预训练配方、搜diffusion配方），约723步17层。</figcaption>
+    </figure>
+    <div class="notes">
+      <p>一步工作是一个节点，「B要等A做完」是一条边。调配方、修bug、做数据分析都是这个形状：每一步建立在前面某一步上。</p>
+      <ul>
+        <li>收益集中在早期：根附近六成五的变体比父节点好，最深层只有三分之一。</li>
+        <li>最优解靠深处少数还在改进的变体，一张图里只有六分之一能到0.95。</li>
+      </ul>
+      <div class="mini" id="f-wide">
+        <div><span>宽图：每层可并行的步骤多</span><canvas height="110"></canvas></div>
+        <div><span>窄图：一条长链</span><canvas height="110"></canvas></div>
+      </div>
+      <p class="key">图有宽有窄。宽图多agent赚，窄图多agent亏。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 2 五种形态 -->
+<section class="ar-sec" id="s2">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">2</span>现在的多agent系统，人和人之间怎么接活</h2>
+  <div class="grid">
+    <figure class="viz" id="f-forms">
+      <div class="tabs" role="tablist"></div>
+      <svg viewBox="0 0 520 260" aria-label="协作形态示意"></svg>
+      <figcaption id="forms-cap"></figcaption>
+    </figure>
+    <div class="notes">
+      <p>GitHub上扫了一遍（星数是2026-10-08当天的），归成五种，外加没有结构的群聊。</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>形态</th><th>代表</th><th>我们在测</th></tr></thead>
+        <tbody>
+          <tr><td>派活回收</td><td>Claude Code subagents（14.98万星）、Anthropic研究系统</td><td>Claude Code</td></tr>
+          <tr><td>交接</td><td>OpenAI Agents SDK handoff（2.99万星）</td><td class="miss">无</td></tr>
+          <tr><td>固定流水线</td><td>MetaGPT（7.08万星）、ChatDev 1.0</td><td class="miss">无</td></tr>
+          <tr><td>协调者加规划者加worker</td><td>CAMEL Workforce（1.78万星）、CrewAI hierarchical</td><td>CAMEL</td></tr>
+          <tr><td>共享看板</td><td>Claude Code agent teams、LATTE</td><td>Raft、Cumora是弱版本：有卡片没依赖边</td></tr>
+          <tr><td>群聊</td><td>AutoGen group chat</td><td>Raft、Cumora现在主要是这个</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 协调的代价 -->
+<section class="ar-sec" id="s3">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">3</span>人多了为什么不是线性变快</h2>
+  <div class="grid">
+    <figure class="viz" id="f-cost">
+      <svg viewBox="0 0 560 300" aria-label="加速比随agent数变化"></svg>
+      <div class="legend"><span><span class="ln" style="border-color:var(--a)"></span>到一半覆盖</span><span><span class="ln dash" style="border-color:var(--b)"></span>到best score 0.8</span><span><span class="ln" style="border-color:var(--rule);border-top-style:dotted"></span>线性（人多几倍就快几倍）</span></div>
+      <figcaption>我们按Chai的规则复现的模拟：16个任务×约300步×12层，标准swarm，几何平均。成本设定照他：agent启动或接手别人的活一次性付5%中位步长；一个组里两人同时干活每步慢15%，再多一人全组再慢1%。他原文64人是33倍和16倍，我们是28倍和12倍。</figcaption>
+    </figure>
+    <div class="notes">
+      <ul>
+        <li><b>两条线都在线性之下，best那条掉得更狠。</b>λ=ln(加速比)/ln(N)，我们这组在0.80到0.94。</li>
+        <li><b>实测比模拟更悲观。</b>Toby Ord拿OpenAI GPT-5.6发布页的数据回归，N个agent≈一个agent跑N^λ倍时间，λ是BrowseComp 0.68、SEC-Bench Pro 0.57、Terminal-Bench 0.48。Chai的成本设得偏乐观。</li>
+      </ul>
+      <figure class="viz" id="f-split">
+        <svg viewBox="0 0 420 150" aria-label="64个agent怎么切"></svg>
+        <figcaption>同样64个agent，到best score 0.95要多久（T₁）。Chai博客图5的数字，4096次平均。</figcaption>
+      </figure>
+      <p class="key">一个大组不如几个小组。先各自试，再把人力并给领先的组。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 LATTE -->
+<section class="ar-sec" id="s4">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">4</span>怎么把「共享看板」做对：LATTE的任务图</h2>
+  <div class="grid">
+    <figure class="viz" id="f-latte">
+      <svg viewBox="0 0 560 330" aria-label="LATTE任务图逐轮演化"></svg>
+      <div class="legend"><span><i style="border:1.5px solid var(--ink-3);background:transparent"></i>pending</span><span><i style="background:var(--a-soft);border:1.5px solid var(--a)"></i>有人在做</span><span><i style="background:var(--a)"></i>done</span><span><i style="background:var(--b-soft);border:1.5px solid var(--b)"></i>Verify / 卡住</span></div>
+      <div class="fx-row"></div>
+      <figcaption id="latte-log"></figcaption>
+    </figure>
+    <div class="notes">
+      <p>一张DAG，节点是子任务，每个节点挂（负责人，状态）。七个操作，按谁看得见什么来分权限：</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>操作</th><th>谁</th><th>干什么</th></tr></thead>
+        <tbody>
+          <tr><td>Discover</td><td>Lead、Worker</td><td>加一个节点，带依赖</td></tr>
+          <tr><td>Assign</td><td>Lead</td><td>派给某个Worker</td></tr>
+          <tr><td>Claim</td><td>Worker</td><td>自己从就绪队列认领</td></tr>
+          <tr><td>Complete</td><td>Worker</td><td>标完成</td></tr>
+          <tr><td>Release</td><td>Lead</td><td>把卡住的收回重派</td></tr>
+          <tr><td>Close</td><td>Lead</td><td>测试已过但没人报，强制关</td></tr>
+          <tr><td>Verify</td><td>Lead</td><td>给高风险节点插一个复核</td></tr>
+        </tbody>
+      </table></div>
+      <p>每轮五步：heartbeat→算就绪队列→派人→并行跑→收结果。Worker只看自己那张卡和前置卡，Lead留最近10条消息，Worker留20条。Lead自己不改文件。</p>
+    </div>
+  </div>
+  <div class="grid" style="margin-top:22px">
+    <figure class="viz" id="f-res">
+      <svg viewBox="0 0 560 250" aria-label="五种结构的准确率和token"></svg>
+      <figcaption>LATTE论文表2，5种结构×2个模型（claude-sonnet-4-6、gpt-5.2）×3个任务×10次，共300次。静态图和LATTE只差一件事：图能不能在跑的过程中改。</figcaption>
+    </figure>
+    <figure class="viz" id="f-conf">
+      <svg viewBox="0 0 420 250" aria-label="冲突指标"></svg>
+      <figcaption>每次运行的平均值。这三项加上作废字符数、活跃轮占比、子任务时长，可以直接进我们的grader。</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- 5 什么时候亏 -->
+<section class="ar-sec" id="s5">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">5</span>多agent是不是总比单agent好</h2>
+  <div class="grid">
+    <figure class="viz" id="f-when">
+      <svg viewBox="0 0 560 230" aria-label="多agent相对单agent的增减"></svg>
+      <figcaption>Google，Towards a Science of Scaling Agent Systems（arXiv 2512.08296 v3）：260种配置、6个benchmark、3家模型。微软，Scaling Discovery through Test-Time Communication（arXiv 2609.21032）：Terminal-Bench 2.0上team@2 60.67%低于pass@2 62.36%。</figcaption>
+    </figure>
+    <div class="notes">
+      <ul>
+        <li><b>可并行的任务上中心化协调加80.8%</b>，顺序任务上独立多agent掉70%。</li>
+        <li><b>单agent准确率超过约45%以后，协调就开始亏。</b>单agent已经做得好的事，别派一群人。</li>
+        <li><b>沟通的东西要能验证。</b>ARC-AGI-3上团队比独立高3倍，Terminal-Bench上团队反而低1.7个点，因为分享的「发现」没法可靠核对。</li>
+      </ul>
+      <p class="key">任务宽、单agent做不好、结果能验证，三条都满足再上多agent。</p>
+    </div>
+  </div>
+</section>
+
+<!-- 6 怎么harness -->
+<section class="ar-sec" id="s6">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">6</span>要让一群agent高效协作，harness要管住什么</h2>
+  <div class="cards">
+    <div><div class="t">任务图显式</div><div class="s">节点、依赖、状态、负责人都写出来，不藏在聊天记录里。</div><div class="src">LATTE；Claude Code agent teams做成了本地文件</div></div>
+    <div><div class="t">图能改</div><div class="s">Worker边做边加节点，Lead审。</div><div class="src">静态图58%对动态图80%</div></div>
+    <div><div class="t">空闲的自己认领</div><div class="s">不等Lead派，就绪了就领。</div><div class="src">LATTE的Claim；活跃轮占比48.7%对100%</div></div>
+    <div><div class="t">heartbeat加Release</div><div class="s">几轮没动静就收回重派。</div><div class="src">子任务时长75.6秒降到39.2秒，95分位294秒降到130秒</div></div>
+    <div><div class="t">写操作单线程</div><div class="s">能改共享状态的只有一个人，其余只读。多出来的agent贡献判断，不贡献写入。</div><div class="src">Cognition 2026-04；review agent每PR抓2个bug</div></div>
+    <div><div class="t">每人只看自己那张卡</div><div class="s">Lead留最近10条，Worker留20条，不吞全部历史。</div><div class="src">LATTE的context scoping</div></div>
+    <div><div class="t">有活才唤醒</div><div class="s">每轮只派就绪队列那么多人，没活就睡。</div><div class="src">LATTE的D2</div></div>
+    <div><div class="t">先各自试，再合并</div><div class="s">起点好不好早期就看得出来，把人力并给领先的那组。</div><div class="src">Chai的自适应swarm；并行会话比一条长会话高264 Elo</div></div>
+  </div>
+  <div class="tablewrap" style="margin-top:22px"><table>
+    <thead><tr><th>LATTE里的</th><th>Cumora看板</th><th>送餐机器人fleet</th></tr></thead>
+    <tbody>
+      <tr><td>Lead</td><td>群主agent</td><td>云端调度agent</td></tr>
+      <tr><td>Worker</td><td>成员agent</td><td>每台上位机的agent</td></tr>
+      <tr><td>节点</td><td>卡片</td><td>工单：送某桌、回充、录包回传、重启服务</td></tr>
+      <tr><td>依赖边</td><td class="miss">缺</td><td>先录包再重启</td></tr>
+      <tr><td>Claim</td><td class="miss">缺</td><td>空闲机器人自己领单</td></tr>
+      <tr><td>heartbeat</td><td class="miss">缺</td><td>上位机心跳，断了就是掉线或丢定位</td></tr>
+      <tr><td>Release</td><td class="miss">缺</td><td>卡住了退回重派另一台</td></tr>
+      <tr><td>Verify</td><td class="miss">缺</td><td>远程重启、下发配置前插一个复核</td></tr>
+    </tbody>
+  </table></div>
+  <p class="lead">多agent只放fleet层。导航、避障、对桩是顺序任务，单机里塞多agent只会掉分，那是导航算法的活。</p>
+</section>
+
+<!-- 7 给评测 -->
+<section class="ar-sec" id="s7">
+  <h2><span class="num" style="color:var(--accent);font-size:14px;margin-right:12px">7</span>给我们评测的三条</h2>
+  <div class="notes"><ol>
+    <li><b>LATTE的六个协作指标进grader。</b>覆盖、并发写、作废字符、消息数、活跃轮占比、子任务时长。现有transcript能算，不用重跑。</li>
+    <li><b>case加两列：并行宽度、单agent基线准确率。</b>结果表按这两列分组，比按「不可兼得」分组更容易讲清楚。</li>
+    <li><b>LATTE接进来当被测。</b>代码2026-05开源（github.com/emieczkowski/latte），1 Lead加4 Worker。它是Raft、Cumora看板的学术版，能回答「结构化看板比群聊好多少」。</li>
+  </ol></div>
+</section>
+
+</main>
+<footer class="ar-foot">
+  来源：Chai，<a href="https://wenhaochai.com/blogs/predictable-swarm-scaling.html">Predictable Swarm Scaling</a>，2026-09-27 · Mieczkowski等，<a href="https://arxiv.org/abs/2605.06320">LATTE，arXiv 2605.06320</a> · Kim等，<a href="https://arxiv.org/abs/2512.08296">arXiv 2512.08296</a> · Ord，<a href="https://www.tobyord.com/writing/swarm-scaling">Swarm Scaling</a>，2026-09-21 · Park等，arXiv 2609.21032 · Liu等，arXiv 2609.15309 · Cognition，Multi-agents working，2026-04-22。<br>
+  页内模拟的规则和参数在源码的Sim里，细节见pingce仓库<span class="num">5.素材/5.7</span>和<span class="num">4.汇报/4.3</span>。
+</footer>
+</div>
+
+<script>
+/* 简化版任务DAG模拟器。照Chai博客的规则写，参数见注释。Node和浏览器都能跑。 */
+(function (root) {
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function gauss(rnd) { var u = 0, v = 0; while (u === 0) u = rnd(); while (v === 0) v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+
+  /* 生成一张DAG。N步、D层、钟形层大小（峰在28%深度）、主父按e^{βδ}抽、以p合并额外父、值=最好父值+N(μ_d,1) */
+  function genDAG(seed, opt) {
+    opt = opt || {}; var rnd = mulberry32(seed);
+    var N = opt.N || 120, D = opt.D || 9, p = opt.p == null ? 0.46 : opt.p, beta = 1.4, peak = 0.28;
+    var sizes = [1], w = [], s = 0;
+    for (var d = 1; d < D; d++) { var x = (d - 0.5) / (D - 1), bell = Math.exp(-Math.pow((x - peak) / 0.28, 2) / 2) * Math.exp(0.35 * gauss(rnd)); w.push(bell); s += bell; }
+    for (d = 1; d < D; d++) sizes.push(Math.max(1, Math.round((N - 1) * w[d - 1] / s)));
+    var nodes = [{ id: 0, layer: 0, parents: [], children: [], value: 0, delta: 0, cost: 1 }], byLayer = [[0]];
+    var fert = gauss(rnd) * 0.2;
+    for (d = 1; d < D; d++) {
+      var prev = byLayer[d - 1], cur = [];
+      var wts = prev.map(function (i) { return Math.exp(beta * nodes[i].delta); }), tw = wts.reduce(function (a, b) { return a + b; }, 0);
+      var mu = 1 - 1.5 * (d - 1) / Math.max(1, D - 2) + fert;
+      for (var k = 0; k < sizes[d]; k++) {
+        var r = rnd() * tw, pi = 0; for (var j = 0; j < prev.length; j++) { r -= wts[j]; if (r <= 0) { pi = prev[j]; break; } pi = prev[j]; }
+        var parents = [pi];
+        if (rnd() < p) {
+          var K = 1; while (K < 16 && rnd() < Math.pow((K + 1) / K, -2.3)) K++;
+          for (j = 0; j < K; j++) {
+            var cand;
+            if (rnd() < 0.2 && prev.length > 1) cand = prev[Math.floor(rnd() * prev.length)];
+            else { var b = 1; while (b < d && rnd() < 0.8) b++; var L = byLayer[Math.max(0, d - b)]; cand = L[Math.floor(rnd() * L.length)]; }
+            if (parents.indexOf(cand) < 0 && !isAncestor(nodes, cand, parents) && !parents.some(function (q) { return isAncestor(nodes, q, [cand]); })) parents.push(cand);
+          }
+        }
+        var best = Math.max.apply(null, parents.map(function (q) { return nodes[q].value; }));
+        var id = nodes.length, dv = mu + gauss(rnd);
+        nodes.push({ id: id, layer: d, parents: parents, children: [], value: best + dv, delta: dv, cost: (1 + 9 * d / (D - 1)) * Math.exp(0.2 * gauss(rnd)) });
+        parents.forEach(function (q) { nodes[q].children.push(id); });
+        cur.push(id);
+      }
+      byLayer.push(cur);
+    }
+    return { nodes: nodes, byLayer: byLayer, D: D, seed: seed };
+  }
+  function isAncestor(nodes, a, set) { /* a 是否是 set 中某点的祖先 */
+    var seen = {}, stack = set.slice();
+    while (stack.length) { var x = stack.pop(); if (x === a) return true; if (seen[x]) continue; seen[x] = 1; nodes[x].parents.forEach(function (q) { stack.push(q); }); }
+    return false;
+  }
+
+  /* 跑一个标准swarm（n=1就是单agent）。返回每步的开始/结束时间和agent号，以及总时长。
+     成本：新agent启动或接手别人的工作时一次性付5%中位步长；组内≥2人活跃每步慢15%，再多一人全组再慢1% */
+  function runSwarm(dag, n, seed, opt) {
+    opt = opt || {}; var rnd = mulberry32(seed ^ 0x9e3779b9), nodes = dag.nodes;
+    var costs = nodes.map(function (x) { return x.cost; }).sort(function (a, b) { return a - b; }), med = costs[costs.length >> 1];
+    var SCHED = opt.sched == null ? 0.05 : opt.sched, COMM = opt.comm == null ? 0.15 : opt.comm, EXTRA = opt.extra == null ? 0.01 : opt.extra;
+    var done = {}, doneBy = {}, busy = {}, t = 0, ev = [], agents = [], nextAgent = 0, active = [];
+    function ready(i) { return !done[i] && !busy[i] && nodes[i].parents.every(function (q) { return done[q]; }); }
+    function penalty() { var a = active.length; return a >= 2 ? COMM + EXTRA * (a - 2) : 0; }
+    function start(ag, i) {
+      busy[i] = ag.id; ag.cur = i; var over = 0;
+      if (ag.fresh) { over += SCHED * med; ag.fresh = false; }
+      else if (nodes[i].parents.some(function (q) { return doneBy[q] !== ag.id; })) over += SCHED * med;
+      var dur = nodes[i].cost * (1 + penalty()) + over;
+      ag.end = t + dur; ev.push({ step: i, agent: ag.id, t0: t, t1: ag.end });
+    }
+    function pick(ag) { /* 自己列表里最深的就绪步骤 */
+      var cands = ag.list.filter(ready); if (!cands.length) return -1;
+      var dmax = Math.max.apply(null, cands.map(function (i) { return nodes[i].layer; }));
+      var top = cands.filter(function (i) { return nodes[i].layer === dmax; });
+      return top[Math.floor(rnd() * top.length)];
+    }
+    function spawn(i) { var ag = { id: nextAgent++, list: [i], fresh: true, cur: -1, end: 0 }; agents.push(ag); active.push(ag); start(ag, i); }
+    spawn(0);
+    var guard = 0;
+    while (active.length && guard++ < 1e6) {
+      var ag = active.reduce(function (a, b) { return a.end < b.end ? a : b; });
+      t = ag.end; var i = ag.cur; done[i] = true; doneBy[i] = ag.id; delete busy[i];
+      nodes[i].children.forEach(function (c) { if (ag.list.indexOf(c) < 0) ag.list.push(c); });
+      var nx = pick(ag);
+      if (nx >= 0) start(ag, nx);
+      else { active.splice(active.indexOf(ag), 1); ag.cur = -1; }
+      /* 协调者：空槽派给随机就绪步骤 */
+      var all = nodes.map(function (x) { return x.id; }).filter(ready);
+      while (active.length < n && all.length) { var j = all.splice(Math.floor(rnd() * all.length), 1)[0]; spawn(j); }
+    }
+    return { events: ev, total: t, agents: nextAgent };
+  }
+
+  /* 把事件流变成分数曲线：返回在时间刻度ts上的coverage和best */
+  function curves(dag, run, ts, scale) {
+    var nodes = dag.nodes, evs = run.events.slice().sort(function (a, b) { return a.t1 - b.t1; });
+    var cov = [], best = [], k = 0, cnt = 0, bv = 0;
+    for (var i = 0; i < ts.length; i++) {
+      while (k < evs.length && evs[k].t1 <= ts[i]) { cnt++; bv = Math.max(bv, nodes[evs[k].step].value); k++; }
+      cov.push(cnt / nodes.length); best.push(bv / scale);
+    }
+    return { cov: cov, best: best };
+  }
+  /* 归一化刻度：同族64张图的最优值第90分位 */
+  function scaleFor(seed, opt) {
+    var vals = []; for (var i = 0; i < 64; i++) { var g = genDAG(seed * 131 + i * 7 + 1, opt); vals.push(Math.max.apply(null, g.nodes.map(function (x) { return x.value; }))); }
+    vals.sort(function (a, b) { return a - b; }); return vals[Math.floor(vals.length * 0.9)];
+  }
+  var S = { mulberry32: mulberry32, gauss: gauss, genDAG: genDAG, runSwarm: runSwarm, curves: curves, scaleFor: scaleFor };
+  if (typeof module !== 'undefined' && module.exports) module.exports = S; else root.Sim = S;
+})(typeof self !== 'undefined' ? self : this);
+
+</script>
+<script>
+(function(){
+'use strict';
+var S=window.Sim, R=document.documentElement;
+var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function css(n){return getComputedStyle(R).getPropertyValue(n).trim();}
+function el(n,a,p){var x=document.createElementNS('http://www.w3.org/2000/svg',n);for(var k in a)x.setAttribute(k,a[k]);if(p)p.appendChild(x);return x;}
+function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
+function fmt(x,d){return (+x).toFixed(d==null?2:d);}
+var anims=[];
+
+/* 照 Chai 的 animator 写的播放头框架。用法：
+   var A = animator(fig, draw, 8000, {hold:1500, extra:[['换一张', fn]], label:function(p){return '...'}});
+   draw(p) 负责把 0..1 的播放头画成那一帧。fig 里要有一个 .fx-row 放按钮。
+   暂停存住位置，重播归零，滚进视野自动播、滚走自动停；prefers-reduced-motion 时直接画最后一帧。 */
+function animator(fig, draw, DUR, opt) {
+  opt = opt || {};
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ctl = fig.querySelector('.fx-row');
+  function mk(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'fx-btn'; b.textContent = label; b.addEventListener('click', fn); ctl.appendChild(b); return b; }
+  if (opt.extra) opt.extra.forEach(function (e) { mk(e[0], function () { e[1](); A.restart(); }); });
+  var btn = mk('暂停', function () { if (running) { st.paused = true; stop(); } else { st.paused = false; if (st.p >= 1) st.p = 0; play(); } });
+  mk('重播', function () { st.paused = false; stop(); st.p = 0; play(); });
+  var out = document.createElement('span'); out.className = 'fx-readouts'; ctl.appendChild(out);
+  var st = { p: 0, paused: false }, raf = null, start = 0, hold = 0, running = false, inView = false, HOLD = opt.hold || 1400;
+  function show(p) { st.p = p; draw(p); if (opt.label) out.innerHTML = opt.label(p); }
+  function tick(ts) {
+    if (!start) start = ts - (st.p || 0) * DUR;
+    var p = (ts - start) / DUR;
+    if (p >= 1) { show(1); if (!hold) hold = ts + HOLD; if (ts >= hold) { start = ts; hold = 0; st.p = 0; } raf = requestAnimationFrame(tick); return; }
+    show(p); raf = requestAnimationFrame(tick);
+  }
+  function play() { if (running) return; if (reduce) { show(1); return; } running = true; start = 0; hold = 0; raf = requestAnimationFrame(tick); btn.textContent = '暂停'; }
+  function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; btn.textContent = '播放'; }
+  var A = { play: play, stop: stop, redraw: function () { show(reduce ? 1 : st.p); },
+    restart: function () { stop(); st.p = 0; if (reduce) { show(1); return; } if (inView && !st.paused) play(); else show(0); } };
+  if (!reduce && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; if (inView && !st.paused) play(); else if (!inView) stop(); }); }, { threshold: 0.2 });
+    io.observe(fig);
+  } else inView = true;
+  show(reduce ? 1 : 0);
+  return A;
+}
+/* 高分屏画布：只读一次原始高度，别把像素高写回去再读（会指数涨） */
+function hidpi(cv) {
+  if (!cv.dataset.h) cv.dataset.h = cv.getAttribute('height');
+  var r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, h = +cv.dataset.h;
+  cv.width = Math.round(r.width * d); cv.height = Math.round(h * d); cv.style.height = h + 'px';
+  var c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); return { ctx: c, W: r.width, H: h };
+}
+
+/* 分层布局：x按层，y按层内顺序，层内按父节点的y排序减少交叉 */
+function layout(dag,W,H,pad){var pos=[],D=dag.D;dag.byLayer.forEach(function(L,d){var x=pad+(W-2*pad)*(D>1?d/(D-1):0.5);
+  var order=L.slice();if(d>0)order.sort(function(a,b){var ya=avg(dag.nodes[a].parents.map(function(q){return pos[q].y;})),yb=avg(dag.nodes[b].parents.map(function(q){return pos[q].y;}));return ya-yb;});
+  order.forEach(function(id,i){pos[id]={x:x,y:pad+(H-2*pad)*((i+0.5)/order.length)};});});return pos;}
+function avg(a){return a.reduce(function(x,y){return x+y;},0)/a.length;}
+function drawDAG(ctx,dag,pos,state){ /* state(id) -> {fill, ring, alpha} */
+  ctx.lineWidth=1;ctx.strokeStyle=css('--rule');
+  dag.nodes.forEach(function(n){n.parents.forEach(function(q){var a=pos[q],b=pos[n.id];var sa=state(q),sb=state(n.id);if(sa.alpha===0||sb.alpha===0)return;ctx.globalAlpha=Math.min(sa.alpha,sb.alpha)*0.9;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.bezierCurveTo((a.x+b.x)/2,a.y,(a.x+b.x)/2,b.y,b.x,b.y);ctx.stroke();});});
+  ctx.globalAlpha=1;
+  dag.nodes.forEach(function(n){var s=state(n.id);if(s.alpha===0)return;var p=pos[n.id];ctx.globalAlpha=s.alpha;ctx.beginPath();ctx.arc(p.x,p.y,s.r||4.5,0,Math.PI*2);ctx.fillStyle=s.fill;ctx.fill();if(s.ring){ctx.lineWidth=2;ctx.strokeStyle=s.ring;ctx.beginPath();ctx.arc(p.x,p.y,(s.r||4.5)+3,0,Math.PI*2);ctx.stroke();}});
+  ctx.globalAlpha=1;
+}
+
+/* ---------- 图0：开场，1个agent对4个agent ---------- */
+(function(){
+  var fig=document.getElementById('f-open'),cv=fig.querySelector('canvas'),charts=fig.querySelectorAll('svg.chart');
+  var seed=7,dag,pos,run1,run4,T1,scale,ts,c1,c4,geo;
+  function build(){dag=S.genDAG(seed,{N:42,D:7});scale=S.scaleFor(seed,{N:42,D:7});run1=S.runSwarm(dag,1,seed);run4=S.runSwarm(dag,4,seed);T1=run1.total;
+    ts=[];for(var i=0;i<=160;i++)ts.push(T1*i/160);c1=S.curves(dag,run1,ts,scale);c4=S.curves(dag,run4,ts,scale);}
+  function relayout(){geo=hidpi(cv);pos=layout(dag,geo.W,geo.H,18);}
+  var SPLIT=0.55; /* 前55%播单agent，后45%播swarm */
+  function phase(p){if(p<SPLIT)return {k:1,t:T1*(p/SPLIT)};return {k:4,t:T1*((p-SPLIT)/(1-SPLIT))};}
+  function draw(p){
+    var ph=phase(p),run=ph.k===1?run1:run4,col=ph.k===1?css('--mute'):css('--a'),t=ph.t;
+    var ctx=geo.ctx;ctx.clearRect(0,0,geo.W,geo.H);
+    var doneAt={},busy={},best=-1,bv=-Infinity;
+    run.events.forEach(function(e){if(e.t1<=t){doneAt[e.step]=1;if(dag.nodes[e.step].value>bv){bv=dag.nodes[e.step].value;best=e.step;}}else if(e.t0<=t)busy[e.step]=1;});
+    drawDAG(ctx,dag,pos,function(id){if(doneAt[id])return {fill:col,alpha:1,ring:id===best?css('--b'):null};if(busy[id])return {fill:css('--surface'),ring:col,alpha:1};return {fill:css('--rule'),alpha:1};});
+    ctx.fillStyle=css('--ink-3');ctx.font='11px '+css('--mono');ctx.textAlign='left';
+    ctx.fillText((ph.k===1?'1个agent':'4个agent')+'  t = '+fmt(t/T1)+' T₁',10,geo.H-8);
+    charts.forEach(function(svg){var k=svg.dataset.k;drawChart(svg,k,ph,t);});
+  }
+  function drawChart(svg,k,ph,t){
+    clear(svg);var W=300,H=120,L=28,Rr=8,T=8,B=22,x=function(u){return L+(W-L-Rr)*u;},y=function(v){return T+(H-T-B)*(1-v);};
+    var ax=el('g',{'class':'axis'},svg);el('path',{d:'M'+L+' '+T+'V'+y(0)+'H'+(W-Rr),fill:'none'},ax);
+    [0,0.5,1].forEach(function(v){el('line',{x1:L,x2:W-Rr,y1:y(v),y2:y(v),'stroke-dasharray':'2 3'},ax);el('text',{x:L-5,y:y(v)+4,'text-anchor':'end'},ax).textContent=v;});
+    [0,0.5,1].forEach(function(u){el('text',{x:x(u),y:H-6,'text-anchor':'middle'},ax).textContent=u===1?'1 T₁':u;});
+    function path(c,upto,col,dash){var d='';for(var i=0;i<ts.length;i++){if(ts[i]>upto)break;d+=(i?'L':'M')+fmt(x(ts[i]/T1),1)+' '+fmt(y(Math.min(1,c[k][i])),1);}if(d)el('path',{d:d,fill:'none',stroke:col,'stroke-width':2,'stroke-dasharray':dash||'none'},svg);}
+    path(c1,ph.k===1?t:T1,css('--mute'));
+    if(ph.k===4)path(c4,t,css('--a'));
+    var cur=ph.k===1?c1:c4,i=0;while(i<ts.length-1&&ts[i+1]<=t)i++;
+    el('circle',{cx:x(ts[i]/T1),cy:y(Math.min(1,cur[k][i])),r:3.5,fill:ph.k===1?css('--mute'):css('--a')},svg);
+  }
+  build();relayout();
+  var A=animator(fig,draw,12000,{extra:[['换一张DAG',function(){seed=S.mulberry32(seed*7919)()*1e9|0;build();relayout();}]],label:function(p){var ph=phase(p);return ph.k===1?'第1遍 · <b>1个agent</b>':'第2遍 · <b>4个agent</b> · T₄ = '+fmt(run4.total/T1)+' T₁';}});anims.push(A);
+  new ResizeObserver(function(){relayout();A.redraw();}).observe(cv);
+})();
+
+/* ---------- 图1：DAG逐层生长 + 宽窄对照 ---------- */
+(function(){
+  var fig=document.getElementById('f-grow'),cv=fig.querySelector('canvas'),dag=S.genDAG(11,{N:64,D:8}),pos,geo;
+  var vmax=Math.max.apply(null,dag.nodes.map(function(n){return n.value;})),vmin=Math.min.apply(null,dag.nodes.map(function(n){return n.value;}));
+  function relayout(){geo=hidpi(cv);pos=layout(dag,geo.W,geo.H,20);}
+  function draw(p){var ctx=geo.ctx;ctx.clearRect(0,0,geo.W,geo.H);var D=dag.D,f=p*D,layer=Math.floor(f),frac=f-layer;
+    var best=-1,bv=-Infinity;dag.nodes.forEach(function(n){if(n.layer<layer||(n.layer===layer&&frac>0.5)){if(n.value>bv){bv=n.value;best=n.id;}}});
+    drawDAG(ctx,dag,pos,function(id){var n=dag.nodes[id],a=n.layer<layer?1:(n.layer===layer?Math.min(1,frac*1.6):0);var q=(n.value-vmin)/(vmax-vmin||1);
+      return {fill:mix(css('--a'),0.25+0.75*q),alpha:a,r:5,ring:id===best&&a===1?css('--b'):null};});
+    ctx.fillStyle=css('--ink-3');ctx.font='11px '+css('--mono');ctx.fillText('第 '+Math.min(D,layer+1)+' / '+D+' 层',10,geo.H-8);}
+  function mix(hex,alpha){var h=hex.replace('#','');if(h.length===8)h=h.slice(0,6);var r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);return 'rgba('+r+','+g+','+b+','+alpha+')';}
+  relayout();var A=animator(fig,draw,7000,{hold:1800});anims.push(A);new ResizeObserver(function(){relayout();A.redraw();}).observe(cv);
+  /* 宽窄两张静态图 */
+  var minis=document.querySelectorAll('#f-wide canvas'),wide=S.genDAG(21,{N:36,D:4}),narrow=S.genDAG(22,{N:36,D:13,p:0.15});
+  function drawMini(cv,d){var g=hidpi(cv),ps=layout(d,g.W,g.H,12);g.ctx.clearRect(0,0,g.W,g.H);drawDAG(g.ctx,d,ps,function(){return {fill:css('--a'),alpha:1,r:3.5};});}
+  function all(){drawMini(minis[0],wide);drawMini(minis[1],narrow);}all();
+  anims.push({redraw:all});new ResizeObserver(all).observe(minis[0]);
+})();
+
+/* ---------- 图2：五种形态 ---------- */
+(function(){
+  var fig=document.getElementById('f-forms'),svg=fig.querySelector('svg'),tabs=fig.querySelector('.tabs'),cap=document.getElementById('forms-cap');
+  var FORMS=[
+    {name:'派活回收',cap:'主agent拆任务、起子agent、收结果进自己的上下文。子agent之间不说话。Claude Code subagents、Anthropic研究系统（领队加3到5个子agent并行，比单Opus高90.2%，token用15倍）。',
+      nodes:[['M',260,50,'主agent'],['a',110,190,'子agent'],['b',260,190,'子agent'],['c',410,190,'子agent']],edges:[['M','a'],['M','b'],['M','c']],flows:[['M','a',0],['M','b',.15],['M','c',.3],['a','M',.5],['b','M',.65],['c','M',.8]]},
+    {name:'交接',cap:'一个agent把整段对话转给另一个，转出去就不管了。上下文随对话走，没有共享状态。OpenAI Agents SDK的handoff（转移工具叫transfer_to_某人），LangGraph swarm。',
+      nodes:[['u',60,130,'用户'],['a',200,130,'分流'],['b',340,70,'退款'],['c',340,190,'查单']],edges:[['u','a'],['a','b'],['a','c']],flows:[['u','a',0],['a','b',.33],['a','c',.66]]},
+    {name:'固定流水线',cap:'角色固定、顺序固定，上游产出文档给下游。MetaGPT（产品经理→架构师→项目经理→工程师→QA）、ChatDev 1.0。LATTE的实验里它最差：34%。',
+      nodes:[['p',70,130,'产品'],['q',200,130,'架构'],['r',330,130,'工程'],['s',460,130,'QA']],edges:[['p','q'],['q','r'],['r','s']],flows:[['p','q',0],['q','r',.33],['r','s',.66]]},
+    {name:'协调者加规划者加worker',cap:'规划者把任务拆成带依赖的子任务，协调者派给最合适的worker，失败了重试或重拆。CAMEL Workforce、CrewAI的hierarchical process、AutoGen的Magentic-One。',
+      nodes:[['P',150,50,'规划者'],['C',370,50,'协调者'],['a',150,200,'worker'],['b',290,200,'worker'],['c',430,200,'worker']],edges:[['P','C'],['C','a'],['C','b'],['C','c']],flows:[['P','C',0],['C','a',.25],['C','b',.35],['C','c',.45],['a','C',.7],['b','C',.8],['c','C',.9]]},
+    {name:'共享看板',cap:'所有人看同一张任务表，任务有依赖、有状态，空闲的自己认领。Claude Code agent teams（共享任务列表加每人一个邮箱，实验特性）、LATTE。Raft、Cumora有卡片没依赖边，是弱版本。',
+      nodes:[['B',260,125,'任务表',true],['L',260,30,'Lead'],['a',70,220,'worker'],['b',260,230,'worker'],['c',450,220,'worker']],edges:[['L','B'],['a','B'],['b','B'],['c','B']],flows:[['L','B',0],['a','B',.2],['B','a',.35],['b','B',.5],['B','c',.65],['c','B',.8]]},
+    {name:'群聊',cap:'所有人看同一条消息流，谁都能说，没有结构。AutoGen group chat、ChatDev 2.0的coordinator广播。Raft、Cumora现在主要是这个。好处是灵活，代价是互相覆盖和重复发言。',
+      nodes:[['G',260,125,'群',true],['a',70,60,'agent'],['b',450,60,'agent'],['c',70,200,'agent'],['d',450,200,'agent']],edges:[['a','G'],['b','G'],['c','G'],['d','G']],flows:[['a','G',0],['G','b',.12],['c','G',.3],['G','d',.42],['b','G',.6],['G','a',.72],['d','G',.85],['G','c',.95]]}
+  ];
+  var cur=0,raf=null,t0=0,dots=[];
+  FORMS.forEach(function(f,i){var b=document.createElement('button');b.type='button';b.setAttribute('role','tab');b.className='fx-btn';b.textContent=f.name;b.addEventListener('click',function(){cur=i;render();});tabs.appendChild(b);});
+  function P(f,id){return f.nodes.filter(function(n){return n[0]===id;})[0];}
+  function render(){clear(svg);var f=FORMS[cur];[].forEach.call(tabs.children,function(b,i){b.setAttribute('aria-selected',i===cur?'true':'false');});cap.textContent=f.cap;
+    f.edges.forEach(function(e){var a=P(f,e[0]),b=P(f,e[1]);el('line',{x1:a[1],y1:a[2],x2:b[1],y2:b[2],stroke:css('--rule'),'stroke-width':1.5},svg);});
+    f.nodes.forEach(function(n){var g=el('g',{},svg);if(n[4]){el('rect',{x:n[1]-70,y:n[2]-26,width:140,height:52,rx:8,fill:css('--a-soft'),stroke:css('--a')},g);
+        [0,1,2].forEach(function(k){el('rect',{x:n[1]-58+k*42,y:n[2]-8,width:32,height:16,rx:3,fill:k<2?css('--a'):'none',stroke:css('--a'),'stroke-width':1.2},g);});
+        el('text',{x:n[1],y:n[2]-13,'text-anchor':'middle','class':'lbl strong'},g).textContent=n[3];}
+      else{el('circle',{cx:n[1],cy:n[2],r:27,fill:css('--surface'),stroke:n[0]==='M'||n[0]==='L'||n[0]==='C'||n[0]==='P'?css('--a'):css('--ink-3'),'stroke-width':1.5},g);
+        el('text',{x:n[1],y:n[2]+4,'text-anchor':'middle','class':'lbl strong'},g).textContent=n[3];}});
+    dots=f.flows.map(function(fl){var c=el('circle',{r:4,fill:css('--b')},svg);return {a:P(f,fl[0]),b:P(f,fl[1]),o:fl[2],c:c};});
+    if(reduce){dots.forEach(function(d){d.c.setAttribute('cx',(d.a[1]+d.b[1])/2);d.c.setAttribute('cy',(d.a[2]+d.b[2])/2);});}
+  }
+  function tick(ts){if(!t0)t0=ts;var u=((ts-t0)/3000)%1;dots.forEach(function(d){var q=(u+d.o)%1,e=q<0.5?2*q*q:1-Math.pow(-2*q+2,2)/2;d.c.setAttribute('cx',d.a[1]+(d.b[1]-d.a[1])*e);d.c.setAttribute('cy',d.a[2]+(d.b[2]-d.a[2])*e);d.c.setAttribute('opacity',q<0.05||q>0.95?0:1);});raf=requestAnimationFrame(tick);}
+  render();
+  if(!reduce){var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting&&!raf)raf=requestAnimationFrame(tick);else if(!e.isIntersecting&&raf){cancelAnimationFrame(raf);raf=null;}});},{threshold:0.2});io.observe(fig);}
+  anims.push({redraw:render});
+})();
+
+/* ---------- 图3：加速比 + 64个agent怎么切 ---------- */
+(function(){
+  var DATA={Ns:[1,2,4,8,16,32,64],g50:[1,1.78,3.58,7.1,13.71,23.11,28.07],g80:[1,1.41,2.79,4.63,7.23,10.22,12.25]};
+  var svg=document.querySelector('#f-cost svg');
+  function draw(){clear(svg);var W=560,H=300,L=46,Rr=60,T=22,B=40,x=function(n){return L+(W-L-Rr)*Math.log2(n)/6;},y=function(v){return T+(H-T-B)*(1-v/64);};
+    var ax=el('g',{'class':'axis'},svg);el('path',{d:'M'+L+' '+T+'V'+y(0)+'H'+(W-Rr),fill:'none'},ax);
+    [1,8,16,32,64].forEach(function(v){el('line',{x1:L,x2:W-Rr,y1:y(v),y2:y(v),'stroke-dasharray':'2 3'},ax);el('text',{x:L-6,y:y(v)+4,'text-anchor':'end'},ax).textContent=v+'×';});
+    DATA.Ns.forEach(function(n){el('text',{x:x(n),y:H-B+16,'text-anchor':'middle'},ax).textContent=n;});
+    el('text',{x:(L+W-Rr)/2,y:H-6,'text-anchor':'middle','class':'ttl'},svg).textContent='agent数（标准swarm）';
+    el('text',{x:L+4,y:T-2,'class':'ttl'},svg).textContent='比1个agent快多少倍';
+    el('line',{x1:x(1),y1:y(1),x2:x(64),y2:y(64),stroke:css('--ink-3'),'stroke-dasharray':'1 4','stroke-width':1.5},svg);
+    el('text',{x:x(64)+6,y:y(64)+4,'class':'lbl'},svg).textContent='线性';
+    function line(arr,col,dash,label){var d=arr.map(function(v,i){return (i?'L':'M')+fmt(x(DATA.Ns[i]),1)+' '+fmt(y(v),1);}).join('');el('path',{d:d,fill:'none',stroke:col,'stroke-width':2.2,'stroke-dasharray':dash||'none'},svg);
+      arr.forEach(function(v,i){el('circle',{cx:x(DATA.Ns[i]),cy:y(v),r:3.2,fill:col},svg);});var last=arr.length-1;el('text',{x:x(64)+6,y:y(arr[last])+4,'class':'lbl strong'},svg).textContent=label+' '+fmt(arr[last],0)+'×';}
+    line(DATA.g50,css('--a'),null,'半覆盖');line(DATA.g80,css('--b'),'5 4','best 0.8');}
+  draw();anims.push({redraw:draw});
+  var s2=document.querySelector('#f-split svg');
+  function draw2(){clear(s2);var W=420,H=150,L=118,Rr=16,rows=[['8组×8人','0.13',0.13],['64个独立agent','0.48',0.48],['1组×64人','平均到不了',null]];var bw=W-L-Rr;
+    rows.forEach(function(r,i){var yy=20+i*40;el('text',{x:L-8,y:yy+16,'text-anchor':'end','class':'lbl strong'},s2).textContent=r[0];
+      if(r[2]!=null){el('rect',{x:L,y:yy,width:bw*r[2]/0.6,height:22,rx:3,fill:i===0?css('--a'):css('--mute')},s2);el('text',{x:L+bw*r[2]/0.6+6,y:yy+16,'class':'lbl'},s2).textContent=r[1]+' T₁';}
+      else{el('rect',{x:L,y:yy,width:bw,height:22,rx:3,fill:'none',stroke:css('--ink-3'),'stroke-dasharray':'4 3'},s2);el('text',{x:L+8,y:yy+16,'class':'lbl'},s2).textContent=r[1];}});}
+  draw2();anims.push({redraw:draw2});
+})();
+
+/* ---------- 图4：LATTE任务图逐轮演化（照论文的操作手写的一段剧本） ---------- */
+(function(){
+  var fig=document.getElementById('f-latte'),svg=fig.querySelector('svg'),log=document.getElementById('latte-log');
+  var POS={A:[70,165],B:[210,70],C:[210,165],D:[210,260],V:[350,70],F:[350,165],E:[490,165]};
+  var EV=[
+    {r:0,op:'Discover ×5',who:'Lead',txt:'Lead读完任务描述，先拆出5个子任务和依赖：分析接口A，然后并行实现B、C、D，最后集成测试E。',do:function(s){add(s,'A','分析接口',[]);add(s,'B','实现模块1',['A']);add(s,'C','实现模块2',['A']);add(s,'D','实现模块3',['A']);add(s,'E','集成测试',['B','C','D']);}},
+    {r:1,op:'Assign(A → Dev1)',who:'Lead',txt:'就绪队列里只有A。Lead派给Dev1。其余三人没活，这一轮不唤醒。',do:function(s){s.A.st='run';s.A.who='Dev1';}},
+    {r:2,op:'Complete(A)',who:'Dev1',txt:'A做完。B、C、D同时进就绪队列，能并行的宽度一下变成3。',do:function(s){s.A.st='done';}},
+    {r:2,op:'Assign(B → Dev1) · Claim(C) · Claim(D)',who:'Lead / Dev2 / Dev3',txt:'Lead把B派给刚空出来的Dev1。Dev2、Dev3不等Lead，自己认领C和D。',do:function(s){s.B.st='run';s.B.who='Dev1';s.C.st='run';s.C.who='Dev2';s.D.st='run';s.D.who='Dev3';}},
+    {r:3,op:'Discover(F)',who:'Dev2',txt:'Dev2做C的时候发现index接口有bug，测试过不了。它不自己改，提议加一个节点F，依赖C。Lead接受。',do:function(s){add(s,'F','修index bug',['C']);}},
+    {r:4,op:'Complete(B) · Complete(C)',who:'Dev1 / Dev2',txt:'B、C做完。F就绪，Dev2认领。D还在Dev3手上，已经三轮没有回报。',do:function(s){s.B.st='done';s.C.st='done';s.F.st='run';s.F.who='Dev2';}},
+    {r:5,op:'heartbeat → Release(D)',who:'Lead',txt:'心跳发现Dev3连续三轮没动静。Lead把D收回，退回pending。',do:function(s){s.D.st='stall';}},
+    {r:5,op:'Claim(D)',who:'Dev1',txt:'D回到就绪队列，空着的Dev1立刻认领。论文里Release在36%的run里用过，子任务时长均值从75.6秒降到39.2秒。',do:function(s){s.D.st='run';s.D.who='Dev1';}},
+    {r:6,op:'Verify(B)',who:'Lead',txt:'B是E的上游，出错会传下去。Lead插一个复核节点V，E要等它。论文里Verify只在19%的run里出现，集中在难的run。',do:function(s){add(s,'V','复核模块1',['B'],true);s.E.deps.push('V');s.V.st='run';s.V.who='Dev3';}},
+    {r:7,op:'Complete(F) · Complete(V) · Complete(D)',who:'Dev2 / Dev3 / Dev1',txt:'三个都做完。E的依赖全满足，进就绪队列。',do:function(s){s.F.st='done';s.V.st='done';s.D.st='done';}},
+    {r:8,op:'Claim(E)',who:'Dev2',txt:'Dev2认领集成测试。其余三人没活，这一轮睡着。论文里worker平均只在48.7%的轮次活跃。',do:function(s){s.E.st='run';s.E.who='Dev2';}},
+    {r:9,op:'Complete(E)',who:'Dev2',txt:'全部测试通过。整个过程Lead没有改过一行文件，只动了图。',do:function(s){s.E.st='done';}}
+  ];
+  function add(s,id,label,deps,verify){s[id]={id:id,label:label,deps:deps,st:'pend',who:'',verify:!!verify};}
+  function stateAt(k){var s={};for(var i=0;i<=k&&i<EV.length;i++)EV[i].do(s);return s;}
+  function draw(p){var k=Math.min(EV.length-1,Math.floor(p*EV.length)),s=stateAt(k),e=EV[k];clear(svg);
+    var ids=Object.keys(s);
+    ids.forEach(function(id){s[id].deps.forEach(function(d){if(!s[d])return;var a=POS[d],b=POS[id];var done=s[d].st==='done';el('path',{d:'M'+(a[0]+52)+' '+a[1]+' C'+((a[0]+b[0])/2)+' '+a[1]+' '+((a[0]+b[0])/2)+' '+b[1]+' '+(b[0]-52)+' '+b[1],fill:'none',stroke:done?css('--a'):css('--rule'),'stroke-width':1.5},svg);});});
+    ids.forEach(function(id){var n=s[id],q=POS[id],g=el('g',{},svg),fill,stroke,cls='';
+      if(n.st==='done'){fill=n.verify?css('--b'):css('--a');stroke=fill;}else if(n.st==='run'){fill=n.verify?css('--b-soft'):css('--a-soft');stroke=n.verify?css('--b'):css('--a');}else if(n.st==='stall'){fill=css('--b-soft');stroke=css('--b');cls='stall';}else{fill=css('--surface');stroke=css('--ink-3');}
+      el('rect',{x:q[0]-52,y:q[1]-19,width:104,height:38,rx:7,fill:fill,stroke:stroke,'stroke-width':1.6,'class':cls},g);
+      el('text',{x:q[0],y:q[1]-2,'text-anchor':'middle','class':'lbl strong',fill:n.st==='done'?css('--surface'):css('--ink')},g).textContent=id+' '+n.label;
+      el('text',{x:q[0],y:q[1]+12,'text-anchor':'middle','class':'lbl',fill:n.st==='done'?css('--surface'):css('--ink-2')},g).textContent=n.st==='pend'?'pending':n.st==='stall'?'没动静 · 收回':n.who;});
+    /* 轮次刻度 */
+    var rounds=10;for(var i=0;i<rounds;i++){el('rect',{x:30+i*50,y:306,width:44,height:6,rx:2,fill:i<e.r?css('--a'):i===e.r?css('--b'):css('--rule-2')},svg);el('text',{x:52+i*50,y:300,'text-anchor':'middle','class':'lbl'},svg).textContent='第'+i+'轮';}
+    log.innerHTML='<span class="num" style="color:var(--ink)">第'+e.r+'轮 · '+e.op+'</span> · '+e.who+'。'+e.txt;}
+  anims.push(animator(fig,draw,20000,{hold:2500}));
+})();
+
+/* ---------- 图4b：结果 + 冲突 ---------- */
+(function(){
+  var S5=['LATTE','Leader-Worker','去中心化','静态图','MetaGPT'],ACC=[80,70,74,58,34],TOK=[148,379,419,297,397];
+  var svg=document.querySelector('#f-res svg');
+  function draw(){clear(svg);var W=560,H=250;
+    function panel(x0,w,vals,max,unit,title,hi){el('text',{x:x0,y:16,'class':'ttl'},svg).textContent=title;var bw=(w-10)/5;
+      vals.forEach(function(v,i){var h=(H-70)*v/max,x=x0+i*bw+4,y=H-40-h;var isL=i===0;el('rect',{x:x,y:y,width:bw-8,height:h,rx:3,fill:isL?css('--a'):(i===3?css('--a-soft'):css('--mute-soft')),stroke:isL?'none':(i===3?css('--a'):css('--mute')),'stroke-width':1.2},svg);
+        el('text',{x:x+(bw-8)/2,y:y-5,'text-anchor':'middle','class':'lbl strong'},svg).textContent=v+unit;
+        var t=el('text',{x:x+(bw-8)/2,y:H-24,'text-anchor':'middle','class':'lbl'},svg);t.textContent=S5[i];
+        if(S5[i].indexOf('-')>0){var parts=S5[i].split('-');t.textContent=parts[0]+'-';el('text',{x:x+(bw-8)/2,y:H-11,'text-anchor':'middle','class':'lbl'},svg).textContent=parts[1];}});
+      el('line',{x1:x0,x2:x0+w-6,y1:H-40,y2:H-40,stroke:css('--rule')},svg);}
+    panel(10,265,ACC,100,'%','准确率，越高越好');panel(290,265,TOK,500,'K','token，越低越好');}
+  draw();anims.push({redraw:draw});
+  var s2=document.querySelector('#f-conf svg'),M=[['互相覆盖文件',[4.3,22.8,35.4]],['同时写同一函数',[1.0,8.5,11.5]],['agent间消息数',[20.4,31.4,34.8]]],who=['LATTE','Leader-Worker','去中心化'];
+  function draw2(){clear(s2);var W=420,L=112,bw=W-L-50;
+    M.forEach(function(m,i){var y0=14+i*78,max=Math.max.apply(null,m[1]);el('text',{x:L-8,y:y0+10,'text-anchor':'end','class':'lbl strong'},s2).textContent=m[0];
+      m[1].forEach(function(v,j){var yy=y0+j*18,w=bw*v/max;el('rect',{x:L,y:yy,width:w,height:13,rx:2,fill:j===0?css('--a'):css('--mute-soft'),stroke:j===0?'none':css('--mute'),'stroke-width':1},s2);
+        el('text',{x:L+w+5,y:yy+10.5,'class':'lbl'},s2).textContent=v+(i===0?'':'')+'  '+who[j];});});}
+  draw2();anims.push({redraw:draw2});
+})();
+
+/* ---------- 图5：什么时候亏 ---------- */
+(function(){
+  var svg=document.querySelector('#f-when svg');var rows=[['可并行的金融推理 · 中心化协调',80.8],['动态网页导航 · 去中心化',9.2],['顺序规划 · 独立多agent',-70],['Terminal-Bench 2.0 · 团队对pass@2',-1.7]];
+  function draw(){clear(svg);var W=560,H=230,L=250,Rr=50,zero=L+(W-L-Rr)*0.5,sc=(W-L-Rr)*0.5/90;
+    el('line',{x1:zero,x2:zero,y1:10,y2:H-30,stroke:css('--ink-3')},svg);
+    rows.forEach(function(r,i){var y=22+i*46,w=Math.abs(r[1])*sc,x=r[1]>=0?zero:zero-w,pos=r[1]>=0;el('text',{x:L-10,y:y+15,'text-anchor':'end','class':'lbl strong'},svg).textContent=r[0];
+      el('rect',{x:x,y:y,width:Math.max(w,1.5),height:24,rx:3,fill:pos?css('--a'):css('--b')},svg);
+      el('text',{x:pos?x+w+6:x-6,y:y+16,'text-anchor':pos?'start':'end','class':'lbl strong'},svg).textContent=(pos?'+':'')+r[1]+'%';});
+    el('text',{x:zero,y:H-10,'text-anchor':'middle','class':'ttl'},svg).textContent='相对单agent，0 = 一样';}
+  draw();anims.push({redraw:draw});
+})();
+
+})();
+</script>
+
