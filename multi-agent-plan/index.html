@@ -1,0 +1,627 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>多agent评测的两条主线</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap">
+<style>
+/* 照 wenhaochai.com/blogs/predictable-swarm-scaling.html 的 token 和排版抄的（他 2026-10-07 的版本：白纸、Google 灰线、oxblood 红）。
+   单一浅色主题，不做明暗、不做多配色。中文衬线配 Noto Serif SC，中文无衬线配 PingFang。 */
+:root{
+  --paper:#FFFFFF;--paper-2:#F8F9FA;
+  --ink:#15141A;--ink-2:#2A2830;--ink-3:#5E5B66;--ink-4:#6A6674;
+  --rule:#DADCE0;--rule-2:#E8EAED;
+  --accent:#7A1A1A;--accent-hover:#5C1212;--accent-soft:rgba(122,26,26,.08);--link-line:rgba(122,26,26,.38);
+  /* 图表色：Google 四色，参考灰，"最好"用红 */
+  --ch-s1:#4285F4;--ch-s2:#EA4335;--ch-s3:#F29900;--ch-s4:#188038;--ch-ref:#8A8791;--ch-best:#EA4335;
+  --ch-grid:var(--rule-2);--ch-axis:var(--rule);
+  --ch-soft-1:rgba(66,133,244,.10);--ch-soft-2:rgba(234,67,53,.12);--ch-soft-4:rgba(24,128,56,.10);--ch-soft-ref:rgba(138,135,145,.18);
+  --font-serif:'Newsreader','Noto Serif SC','Songti SC','Iowan Old Style',Georgia,serif;
+  --font-sans:'Instrument Sans',-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',Arial,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --font-chart:var(--font-sans);
+  --max:720px;--gutter:clamp(20px,4vw,56px);
+  color-scheme:light;
+}
+html,body{margin:0;padding:0;overflow-x:clip}
+body{font-family:var(--font-sans);background:var(--paper);color:var(--ink);line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.ar-page{max-width:var(--max);margin:0 auto;padding:0 var(--gutter) 96px}
+.ar-crumb{font-family:var(--font-mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin:36px 0 44px;display:flex;gap:10px}
+.ar-eyebrow{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin-bottom:22px}
+.ar-head h1{font-family:var(--font-serif);font-weight:400;font-size:clamp(36px,4.6vw,52px);line-height:1.12;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.ar-standfirst{font-family:var(--font-serif);font-size:clamp(17px,1.5vw,20px);line-height:1.6;color:var(--ink-2);margin:18px 0 0}
+.ar-authors{display:flex;align-items:center;gap:12px;margin:32px 0 0;font-family:var(--font-sans);font-size:15px;color:var(--ink)}
+.ar-main p{font-family:var(--font-serif);font-size:18px;line-height:1.75;color:var(--ink-2);margin:0 0 20px}
+.ar-main ul:not([class]),.ar-main ol:not([class]),.ar-main blockquote{font-family:var(--font-serif);font-size:18px;line-height:1.75;color:var(--ink-2)}
+.ar-main ul:not([class]) li,.ar-main ol:not([class]) li{margin:0 0 8px}
+.ar-main h2{font-family:var(--font-serif);font-weight:500;font-size:clamp(24px,2.4vw,30px);letter-spacing:-.015em;line-height:1.25;margin:46px 0 16px;padding-top:20px;border-top:1px solid var(--rule);text-wrap:balance}
+.ar-main h3{font-family:var(--font-serif);font-weight:500;font-size:21px;letter-spacing:-.01em;margin:32px 0 12px}
+.ar-main a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--link-line);padding:0 1px;transition:color .15s,border-color .15s}
+.ar-main a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.ar-main strong{font-weight:600;color:var(--ink)}
+.ar-main code{font-family:var(--font-mono);font-size:.82em;background:var(--paper-2);border:1px solid var(--rule-2);border-radius:3px;padding:1px 5px}
+.ar-main pre{background:var(--paper-2);border:1px solid var(--rule);border-radius:2px;padding:16px 18px;margin:0 0 22px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.65;color:var(--ink-2)}
+.ar-main .key{font-family:var(--font-serif);font-size:18px;line-height:1.6;color:var(--ink);border-left:2px solid var(--accent);padding:2px 0 2px 16px;margin:0 0 20px}
+/* 图：透明底，画布一圈细灰线，标题 sans 17/600，副题 sans 14 灰，图注 sans 14 灰 */
+figure.viz{position:relative;margin:36px 0;padding:0;background:transparent}
+.viz .vh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.viz h4{font-family:var(--font-chart);font-size:17px;font-weight:600;line-height:1.3;margin:0 0 4px;color:var(--ink)}
+.viz .sub{font-family:var(--font-chart);font-size:14px;line-height:1.45;color:var(--ink-3);margin:0 0 14px}
+.viz canvas{display:block;width:100%;border:1px solid var(--rule-2);border-radius:2px}
+.viz svg{width:100%;height:auto;display:block;overflow:visible;font-family:var(--font-chart)}
+.viz svg text{font-family:var(--font-chart)}
+.viz figcaption{font-family:var(--font-sans);font-size:14px;line-height:1.5;color:var(--ink-3);padding-top:12px}
+.viz .legend{display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;font-family:var(--font-chart);font-size:13px;color:var(--ink-2);margin:10px 0 0}
+.viz .legend .li{display:inline-flex;align-items:center;gap:6px}
+.viz .legend .sw{width:12px;height:3px;border-radius:2px}
+.viz .legend .dt{width:10px;height:10px;border-radius:50%}
+.viz .legend .lk{width:14px;height:0;border-top:3px solid;border-radius:2px}
+.viz table{width:100%;border-collapse:collapse;font-family:var(--font-chart);font-size:13.5px;margin:6px 0 0}
+.viz th,.ar-main table th{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:500;color:var(--ink-3);text-align:left;padding:8px;border-bottom:1px solid var(--ink)}
+.viz td,.ar-main table td{padding:8px;border-bottom:1px solid var(--rule-2);vertical-align:top;font-variant-numeric:tabular-nums}
+.ar-main table{width:100%;border-collapse:collapse;font-family:var(--font-chart);font-size:14px;margin:0 0 22px}
+/* 控件：小号大写 mono，2px 圆角，悬停变红 */
+.fx-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.fx-btn,.viz .tgl{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:5px 10px;cursor:pointer}
+.fx-btn:hover,.viz .tgl:hover{color:var(--accent);border-color:var(--accent)}
+.fx-btn[aria-selected="true"],.fx-btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.fx-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fx-readouts{display:flex;flex-wrap:wrap;gap:5px 16px;margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.fx-readouts b{font-weight:600;color:var(--ink)}
+.fx-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+@media (max-width:640px){.fx-two{grid-template-columns:1fr}}
+.fx-tick{fill:var(--ink-3);font-size:12px;font-family:var(--font-mono),monospace;font-variant-numeric:tabular-nums}
+.fx-axis-title{fill:var(--ink);font-size:13.5px;font-weight:500;font-family:var(--font-sans),sans-serif}
+.lbl{font-family:var(--font-mono);font-size:11.5px;fill:var(--ink-2);font-variant-numeric:tabular-nums}
+.lbl.strong{fill:var(--ink);font-weight:500}
+/* 脚注与来源 */
+.ar-notes ol{list-style:none;padding:0;margin:0}
+.ar-notes li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--rule-2);font-family:var(--font-serif);font-size:15px;line-height:1.55;color:var(--ink-2)}
+.ar-notes li>b{font-family:var(--font-mono);font-weight:500;font-size:12px;color:var(--accent);padding-top:2px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.ar-page{max-width:1180px;display:grid;grid-template-columns:minmax(0,720px);justify-content:center;column-gap:clamp(32px,4vw,56px)}
+.ar-toc{display:none;grid-column:1;position:sticky;top:40px;align-self:start;margin-top:48px}
+@media (min-width:1040px){.ar-page{grid-template-columns:190px minmax(0,720px)}.ar-toc{display:block}}
+.ar-toc ol{list-style:none;padding:0;margin:0;border-left:2px solid var(--rule)}
+.ar-toc a{display:block;padding:5px 0 5px 14px;margin-left:-2px;border-left:2px solid transparent;font-family:var(--font-sans);font-size:13.5px;line-height:1.4;color:var(--ink-4);text-decoration:none}
+.ar-toc a.active{color:var(--ink);border-left-color:var(--ink)}
+.ar-toc .tt{font-family:var(--font-mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin:0 0 10px}
+.ar-head,.ar-main{grid-column:1}
+@media (min-width:1040px){.ar-head,.ar-main{grid-column:2}}
+.ar-head{margin-top:40px}
+.ar-head h1{font-size:clamp(30px,3.6vw,42px);line-height:1.2}
+.ar-main h2 .sn{font-family:var(--font-mono);font-size:13px;color:var(--accent);margin-right:12px;letter-spacing:.04em}
+.standfirst-list{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.standfirst-list li{font-family:var(--font-serif);font-size:clamp(17px,1.5vw,19px);line-height:1.6;color:var(--ink-2);display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.standfirst-list li b{font-weight:600;color:var(--ink)}
+.standfirst-list li .n{font-family:var(--font-mono);font-size:12px;color:var(--accent);padding-top:5px}
+.notes ul,.notes ol{margin:0 0 20px;padding-left:1.2em}
+.viz canvas{height:auto}
+.fx-ctrls{display:grid;grid-template-columns:auto 1fr 4ch;gap:9px 12px;align-items:center;margin-top:10px;font-family:var(--font-mono);font-size:13px;color:var(--ink-2)}
+.fx-ctrls label{font-size:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+.fx-ctrls input[type=range]{width:100%;min-width:0;height:2px;margin:0;accent-color:var(--accent);cursor:pointer}
+.fx-ctrls output{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-size:13px}
+.legend .li{display:inline-flex;align-items:center;gap:6px}
+.tablewrap{overflow-x:auto;margin:0 0 22px}
+td.miss{color:var(--ink-4)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px 24px;margin:0 0 28px}
+.cards>div{border-top:1px solid var(--rule);padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.cards .t{font-family:var(--font-serif);font-weight:500;font-size:18px;color:var(--ink)}
+.cards .s{font-family:var(--font-serif);font-size:15.5px;line-height:1.55;color:var(--ink-2)}
+.cards .src{font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:.02em}
+footer.ar-foot{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-family:var(--font-sans);font-size:13px;color:var(--ink-3);line-height:1.8}
+footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);text-decoration:none}
+.viz .anim-bar{transform:scaleY(0);transform-box:fill-box;transform-origin:50% 100%}
+.viz .anim-barx{transform:scaleX(0);transform-box:fill-box;transform-origin:0 50%}
+.viz .anim-fade{opacity:0}
+.viz.in .anim-bar,.viz.in .anim-barx{transform:none;transition:transform .55s cubic-bezier(.2,.7,.2,1) var(--d,0ms)}
+.viz.in .anim-fade{opacity:1;transition:opacity .35s ease var(--d,0ms)}
+.hero{margin:36px 0 28px}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+@media (max-width:640px){.mini{grid-template-columns:1fr}}
+.mini>div{min-width:0}
+.q{font-family:var(--font-chart);font-size:12.5px;fill:var(--ink-2)}
+.qt{font-family:var(--font-chart);font-size:13.5px;font-weight:600;fill:var(--ink)}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--rule);border-radius:2px;padding:1px 6px;color:var(--ink-3);margin-left:6px;vertical-align:2px}
+</style>
+
+<div class="ar-page">
+<nav class="ar-toc" aria-label="目录"><div class="tt">目录</div><ol>
+  <li><a href="#s0">0 一句话</a></li>
+  <li><a href="#s1">1 主线一：运行中拨算力</a></li>
+  <li><a href="#s2">2 前置：验证粒度扫描</a></li>
+  <li><a href="#s3">3 主线二：能不能提前猜做法</a></li>
+  <li><a href="#s4">4 两层合起来</a></li>
+  <li><a href="#s5">5 理想中的meta-harness</a></li>
+</ol></nav>
+
+<header class="ar-head">
+  <div class="ar-eyebrow">pingce · 汇报 · 2026-10-09</div>
+  <h1>多agent评测的两条主线</h1>
+  <p class="ar-standfirst">文献查完，三十篇里能画成图的数都抠了一遍，「按任务选机制的调度层」这句话已经有八家在做，不能再当贡献。还剩下的位置有两个，一个在运行中，一个在开跑前，合起来才是调度层。每条给机制示意、预期结果和空位证据。</p>
+</header>
+
+<main class="ar-main">
+
+<section id="s0">
+  <h2><span class="sn">0</span>一句话</h2>
+  <div class="notes">
+  <p class="key">多agent什么时候赚、赚在哪，文献已经答了一半：收益来自验证过的进展共享，前提是中途能验证。没人做的是把这件事变成可调的东西：运行中按验证结果把输家的算力拨给领先者，开跑前按便宜信号选三类机制并报扣掉探测成本的净值。两条线共用同一批case和同一个grader。</p>
+  <ol class="standfirst-list">
+    <li><span class="n">01</span><span><b>主线一，运行中拨算力。</b>K个会话并行，共享一张带复现证据的榜，到检查点淘汰后一半，把它们剩下的预算给前一半，从领先者的状态fork出变体。总token拉平。目标是第一个在总量拉平下多agent赢的编码结果。</span></li>
+    <li><span class="n">02</span><span><b>主线二，先看有没有万能做法，没有再提前猜，猜值不值。</b>先量每道题最好的做法是不是不一样，不一样再用一分钟探测去猜该用哪种，最后算猜对多赚的分减去猜花的钱。最后这一减没人报过。</span></li>
+    <li><span class="n">03</span><span><b>前置实验，验证粒度当自变量。</b>同一个任务给不同密度的中途验证器，看team@k减best@k随粒度m怎么变。Park的理论预言它从负穿到正，没人扫过。这张图直接回答「什么任务该上多agent」。</span></li>
+  </ol>
+  </div>
+</section>
+
+<section id="s1">
+  <h2><span class="sn">1</span>主线一：运行中按验证结果拨算力</h2>
+  <div class="notes">
+  <p>Liu等（2609.15309，Chai在作者里）测出1亿token给一个会话不如切成3份，切10份又不如3份，拐点是边际Elo掉到独立采样参考线以下。但它的切法事先定死，中途不调。Park（2609.21032）的团队靠一张带复现证据的榜共享进展，可它控的是每人额度，总量拉平那一组反而输给单agent。ATM、TacoMAS、DyLAN三家做运行中改结构，全是只砍不并。把这三件事接起来就是主线一。</p>
+  </div>
+  <figure class="viz hero" id="f-realloc">
+    <div class="vh"><div><h4>机制示意：K个会话，检查点淘汰后一半，预算并给前一半，从领先者fork<span class="tag">示意</span></h4><p class="sub">左边每行一个会话，条长是花掉的token；右边是各会话在榜上的分。灰掉的是被淘汰的，斜纹的是fork出来的变体。总token在任何时刻都等于一个会话花同样时间的K倍。</p></div></div>
+    <canvas height="320" aria-label="动态拨算力的过程示意"></canvas>
+    <div class="fx-row"></div>
+    <figcaption>每个会话是一个Claude Code实例，各自有工作区。榜上一条记录要带分数、复现步骤、方法谱系，照Park的格式。检查点的触发信号用Liu的拐点：某会话的边际分数掉到独立采样参考线以下，它就该被收掉或者fork。fork出来的变体要带一个明确的改动，照Park「采纳后保留一个变体」那条规则。淘汰掉的会话的剩余预算全部转给活着的，所以三条基线的总token一样：单会话、固定切K份、动态并拨。</figcaption>
+  </figure>
+  <figure class="viz" id="f-expect1">
+    <div class="vh"><div><h4>预期结果：总token拉平，三种分法的分数<span class="tag">预期，锚点是Liu的实测</span></h4><p class="sub">横轴总token，对数；纵轴任务分数。锚点：Liu在Polyomino Packing上1份1981、3份2245、10份1890 Elo。</p></div></div>
+    <svg viewBox="0 0 720 300" aria-label="三种分法的预期曲线"></svg>
+    <div class="legend"><span class="li"><i class="sw" style="background:var(--ink)"></i>一个会话</span><span class="li"><i class="sw" style="background:var(--ch-ref)"></i>固定切3份，事先定</span><span class="li"><i class="sw" style="background:var(--ch-s2)"></i>动态并拨，预期</span></div>
+    <figcaption>单会话过了拐点就平，这是Liu的实测；固定切份在小预算时输给单会话，这是Park的协调税，它测到的门槛是每人40万输出token；动态并拨在小预算时就是单会话（K退化成1），过了拐点才分叉，所以预期在全程不低于两条基线。要是在大预算段也没拉开，那就是「拨算力没用」的负结果，一样能报。</figcaption>
+  </figure>
+  <div class="notes">
+  <div class="tablewrap"><table>
+    <tr><th>空位</th><th>证据</th><th>我们补什么</th></tr>
+    <tr><td>切法事先定死</td><td>Liu 2609.15309：K从单会话曲线预测，中途不调</td><td>检查点上按榜动态调</td></tr>
+    <tr><td>只砍不并</td><td>ATM 2607.20488拆过载agent；TacoMAS 2605.09539删agent；DyLAN 2310.02170停用agent，三家都不回收算力</td><td>淘汰者的预算转给领先者</td></tr>
+    <tr><td>总量拉平时团队输</td><td>Park图4：五人每人0.2倍，过第1关和第3关后归零</td><td>K随预算自适应，小预算退化成单会话</td></tr>
+    <tr><td>委派是加活</td><td>DeLM 2606.10662：Claude Code和Codex的原生subagent四格没赢过单harness</td><td>不委派，fork的是完整状态</td></tr>
+  </table></div>
+  <p>做法上最省的路径：用现有的Claude Code adapter，K个会话各开一个worktree，榜是工作区里一个只追加的文件，检查点由runner按token计量触发。grader已经有互相覆盖、并发写这些指标，加一列「fork谱系」就够。</p>
+  </div>
+</section>
+
+<section id="s2">
+  <h2><span class="sn">2</span>前置实验：验证粒度当自变量</h2>
+  <div class="notes">
+  <p>主线一要能中途打分。能不能中途打分，本身就是文献里最该量而没人量的变量。Park的形式化是<span class="num">T_team = Σ_j min_i X_ij ≤ min_i Σ_j X_ij = T_best</span>，前提是任务能切成m段可验证的进展。它在ARC-AGI-3上m是关卡数，team@5比best@5高5.8个点；在Terminal-Bench 2.0上验证器跑完才给反馈，m≈1，team@2比pass@2低1.7个点。两个点都是它自己的数，中间没人扫过。</p>
+  </div>
+  <figure class="viz" id="f-granularity">
+    <div class="vh"><div><h4>预期结果：team@k减best@k随验证粒度m变化<span class="tag">预期，两个锚点是Park的实测</span></h4><p class="sub">同一个任务，只改给agent的中途验证器密度：只有终测、按模块、按函数。</p></div></div>
+    <svg viewBox="0 0 720 280" aria-label="验证粒度扫描的预期曲线"></svg>
+    <div class="fx-row"></div>
+    <figcaption>横轴是验证器能分辨的进展段数，纵轴是team@k减best@k。两个实心点是Park的实测：Terminal-Bench 2.0上m≈1是−1.7，ARC-AGI-3上m≈6是+5.8。红线是预期，穿零点在哪由实验定。验证器可以让harness自己生成，顺带测生成的验证器错多少，TeamBench测到verifier批准了49%错提交，所以要同时报「验证器误批率对收益」。做法：编码case的隐藏测试按模块分层，露给agent的层数就是m。</figcaption>
+  </figure>
+  <div class="notes">
+  <p>这张图比任何路由器都好讲：横轴是任务的一个可测属性，纵轴直接是该不该上多agent。它也是主线二的输入，「有没有中途验证器」是路由信号之一。</p>
+  </div>
+</section>
+
+<section id="s3">
+  <h2><span class="sn">3</span>主线二：每道题都该用同一种做法吗？不是的话能不能提前猜，猜值不值</h2>
+  <div class="notes">
+  <p>多agent有好几种组织方式，这页叫三类：切分（拆开各做一块）、独立（各做全部挑最好）、共享（各做全部，发现写进共享榜）。每类里还有四个档位可调（拓扑、记忆共享、权限、调度），先只看三类。主线二问的是：<b>是不是每道题都该用同一种？不是的话，能不能开跑前就猜出该用哪种？猜这件事值不值？</b></p>
+  <p class="key">三个术语先翻成人话。翻转：没有万能的做法，同一种做法这道题最好、那道题最差。路由：开跑前选做法，用一分钟探测到的几个数去猜。净值：猜对多赚的分，减去猜本身花的钱。三步正好对应三个词，前一步不成立后一步不做。</p>
+  <h3>第一步，量翻转：我们的题里有没有「没有万能做法」这回事</h3>
+  <p>把每道case在三种方式下各跑一遍，得到一张「每道题每种做法得几分」的表。用两道已有的case举例，数字是示意：</p>
+  <div class="tablewrap"><table>
+    <tr><th>case</th><th>切分</th><th>独立</th><th>共享</th><th>这道case的最优</th></tr>
+    <tr><td>broad-lookup（20家公司各查CEO，子任务互不依赖）</td><td><b>0.90</b></td><td>0.60</td><td>0.70</td><td>切分，0.90</td></tr>
+    <tr><td>coupled-game（三个文件接口互相依赖）</td><td>0.30</td><td>0.60</td><td><b>0.65</b></td><td>共享，0.65</td></tr>
+    <tr><td>两道平均</td><td>0.60</td><td>0.60</td><td><b>0.675</b></td><td>逐case取最优的平均，<b>0.775</b></td></tr>
+  </table></div>
+  <p>四个定义，全从这张表里读：</p>
+  <ul>
+    <li><b>翻转</b>：两道case的最优方式不同（切分对共享）。这两道正好是P-09里的一对，A侧该让并行切分帮忙，B侧该让它拖后腿。</li>
+    <li><b>oracle</b>：事后知道每道case哪种最好，逐case取最优再平均，0.775。它是任何选法的上限。</li>
+    <li><b>固定最优</b>：全部case只准用一种方式，挑平均最高的，共享0.675。它是不选的下限。</li>
+    <li><b>oracle余量</b>：两者之差，0.10。这是「会选」最多能多赚的分。余量不超过噪声地板，第二、三步不做，报「调度层没东西可调」。</li>
+  </ul>
+  <p>现有文献的洞就在这一步：Harness-Bench有一致赢家但没报任务级翻转，八家路由器全都默认翻转存在，没人量过余量。我们有3对6道成对对抗case，10.23前到至少3对进正式评测，翻转矩阵就是这张表扩到几十行。</p>
+  <h3>第二步，路由：开跑前猜该用哪种</h3>
+  <p>不能等跑完才知道，那时钱已经花了。所以先让一个agent跑一分钟，读四个数去猜。这四个数不是拍的，每个对应一条文献里被证明会翻结论的变量：</p>
+  <div class="tablewrap"><table>
+    <tr><th>信号</th><th>读什么</th><th>它预示什么</th><th>依据</th></tr>
+    <tr><td>工具调用熵</td><td>第一分钟调了多少种工具、分布多散</td><td>工具多，切分型吃亏，中间转述丢工具状态</td><td>Kim：工具交互系数−0.096，p=0.002</td></tr>
+    <tr><td>并行宽度</td><td>任务能同时推进的独立线有几条</td><td>宽，切分赚；窄成链，切分亏</td><td>Kim：Finance +80.8对PlanCraft −70；Chai的DAG宽度</td></tr>
+    <tr><td>有无中途验证器</td><td>能不能在做完之前给子结果打分</td><td>有，共享赚；没有，共享传的是噪声</td><td>Park：ARC +5.8对Terminal-Bench −1.7</td></tr>
+    <tr><td>进展斜率</td><td>单agent第一分钟分数涨多快</td><td>慢，说明一个人用不好上下文，切分或共享才有空间；快，单agent够用</td><td>Kim：单agent过45%就别加人；TAMU：强模型切分亏</td></tr>
+  </table></div>
+  <p>猜的规则不是人定的，是一棵决策树从第一步那张表上学出来的：输入四个数，输出三类取一、四个档位各取一。不用RL，Kim用20个参数的回归在未见过的配置上选对87%，我们几十道case，树够用。</p>
+  <h3>第三步，净值：猜对多赚的分，减去猜本身花的钱</h3>
+  <p>用regret衡量，regret就是比oracle少拿的分，越小越好。报三列：</p>
+  <ul>
+    <li><b>固定最优的regret</b>：0.775−0.675=0.10。不选，就亏这么多。</li>
+    <li><b>路由器的regret</b>：路由器每道case选中了最优就是0，选错一道就亏那一道的差。示例里两道都选对，0。</li>
+    <li><b>路由器加探测成本的regret</b>：探测那一分钟花的token按同样的分数折算进去，示例里折0.02，第三列0.02。</li>
+  </ul>
+  <p class="key">路由划算，当且仅当第三列小于第一列，也就是扣掉探测的钱还比不猜强。示例里0.02小于0.10，划算。三步跑完结论只有三种：没有翻转，固定用最好的一种；有翻转但猜不准或猜太贵，知道有空间拿不到；有翻转且猜得准又便宜，meta-harness的选择层才成立。COVER在ToolSandbox上第二列就是0.131，没过它自己预注册的0.10，所以这一步有真实的概率是负结果，论文里提前写。</p>
+  <h3>和已有的八家差在哪</h3>
+  <div class="tablewrap"><table>
+    <tr><th>八家都没做的</th><th>我们</th></tr>
+    <tr><td>候选里没有共享型，全是切分型拓扑（链、树、中心化、去中心化）</td><td>候选三类，共享型进候选</td></tr>
+    <tr><td>默认翻转存在，没量过余量</td><td>第一步先量，余量不够就停</td></tr>
+    <tr><td>不扣探测和路由自身的成本；Kim的输入里有单agent基线，等于要先把单agent跑完</td><td>探测只一分钟，成本进第三列</td></tr>
+    <tr><td>全在小模型上训（gpt-4o-mini、Llama-8B、7B编排器），而收益随模型变强会缩</td><td>在Claude Code和Opus档上测</td></tr>
+  </table></div>
+  </div>
+  <figure class="viz" id="f-router">
+    <div class="vh"><div><h4>第二步的样子：一分钟探测，决策树，输出一个配置，探测成本单独记账<span class="tag">示意</span></h4><p class="sub">左到右是一道任务开跑前走的路。</p></div></div>
+    <svg viewBox="0 0 720 300" aria-label="路由机制示意"></svg>
+    <div class="fx-row"></div>
+    <figcaption>探测的四个数就是上面那张表。决策树的训练集是第一步的翻转矩阵。输出是一个配置：三类取一，四个档位各取一。红色那条线是探测花掉的token，它不进效果，进regret的第三列。</figcaption>
+  </figure>
+  <figure class="viz" id="f-regret">
+    <div class="vh"><div><h4>预期结果：左是第一步的翻转矩阵，右是第三步的regret三列<span class="tag">示意</span></h4><p class="sub">左：每行一道case，每格是该方式在这道case上的名次，深色是第一。右：三根柱子，第三根低于第一根才划算。</p></div></div>
+    <div class="mini"><div><svg viewBox="0 0 330 260" id="regret-a"></svg></div><div><svg viewBox="0 0 330 260" id="regret-b"></svg></div></div>
+    <figcaption>左图是同一对里A、B两行的深色格子不在同一列，这就是翻转。现有3对6道case，就是6行；翻转的对越多，oracle余量越大。右图三根柱子按上面的定义算，示意值是固定最优0.28、路由器0.11、路由器加探测0.16，红虚线是COVER给自己定的0.10，它没过。</figcaption>
+  </figure>
+</section>
+
+<section id="s4">
+  <h2><span class="sn">4</span>两层合起来才是调度层</h2>
+  <figure class="viz" id="f-stack">
+    <div class="vh"><div><h4>开跑前选机制，运行中拨算力，共用一个grader<span class="tag">示意</span></h4><p class="sub">主线二在任务进来时做一次决定，主线一在跑的过程里每个检查点做一次决定。</p></div></div>
+    <svg viewBox="0 0 720 230" aria-label="两层调度的关系"></svg>
+    <figcaption>主线二的「调度」因子，就是主线一的开关：选了共享型，运行中就按榜拨算力；选了切分型，检查点上按子任务完成度回收；选了独立型，就是best-of-k。两层共用六个协调指标（互相覆盖、并发写、作废字符、消息数、活跃轮占比换成AgentWorld的CCE、子任务时长）和成本两列（Cost/Task、Cost/Submission，照DeLM）。</figcaption>
+  </figure>
+  <div class="notes">
+  <p>创新点归成五条，每条后面是它对应的空位证据：</p>
+  <ol>
+    <li><b>验证粒度m当自变量。</b>Park给了两个端点，中间没人扫。</li>
+    <li><b>总量拉平下的动态并拨。</b>Liu切法定死，三家只砍不并，Park总量拉平那组是负的。</li>
+    <li><b>三类路由，候选含共享型。</b>八家全是切分型。</li>
+    <li><b>regret三列，扣探测成本。</b>COVER不算路由开销，Kim要先跑单agent。</li>
+    <li><b>翻转先量再路由，成对对抗case当地基。</b>六家当动机写，没人量；成对设计的祖宗是2306.03034，LLM这边没有。</li>
+  </ol>
+  <p>方法论上另有两条，不算创新但审稿必问：单agent基线用best-of-k不用单次（2605.01566和2502.08788证明换基线结论翻）；先跑2606.20695的噪声地板，两个seed各100题。</p>
+  </div>
+</section>
+
+<section id="s5">
+  <h2><span class="sn">5</span>理想中的meta-harness</h2>
+  <div class="notes">
+  <p>套在现有harness外面的一层，一道任务从进来到记账走五步：探测、选择、执行、调度、记账。前两步开跑前做一次，后三步每个检查点做一次，最后一步的产出回流给第二步。</p>
+  </div>
+  <figure class="viz hero" id="f-mh-life">
+    <div class="vh"><div><h4>一道任务走完meta-harness的五步<span class="tag">示意</span></h4><p class="sub">上面是当前在哪一步。探测一分钟出四个数，选择器在三类乘四因子的格子里点亮一个配置，执行和调度就是第1节那套会话加榜，记账三列回流。</p></div></div>
+    <canvas height="440" aria-label="meta-harness处理一道任务的全过程"></canvas>
+    <div class="fx-row"></div>
+    <figcaption>探测的四个数全是单agent跑一分钟就能读到的，这一分钟的token计入最后的regret。选择器输出的是一个配置，预测regret不低于固定最优时直接用固定最优。执行层的原语各有出处：带sha256重打分的榜来自Park，租约加共享完成态来自grite（重复率0.78降到0.00），按角色的上下文作用域来自DACS和LATTE，协议由运行时强制来自TeamBench（prompt约束下verifier越界3.6倍）。调度层每个检查点：读榜，边际进展低于独立采样参考线的收掉，预算并给高于线的，从领先者fork一个声明过的变体。记账那一行写回评测网格，选择器重训。</figcaption>
+  </figure>
+  <figure class="viz" id="f-mh-chain">
+    <div class="vh"><div><h4>它要赢过单会话和固定切份，五个前提要同时成立；每个可测，不成立就退化成右下那个已知基线<span class="tag">逻辑链</span></h4><p class="sub">前三条是调度层的，后两条是选择层的。退化路径全是现成基线，所以下界是「不比最好的固定方案差，加一次探测的成本」。</p></div></div>
+    <svg viewBox="0 0 720 330" aria-label="meta-harness成立的五个前提"></svg>
+  </figure>
+  <div class="notes">
+  <p>五步各自的输入输出，写死：</p>
+  <ol>
+    <li><b>探测。</b>输入任务；跑一分钟单agent；输出工具调用熵、并行宽度估计、有无中途验证器、进展斜率。</li>
+    <li><b>选择。</b>输入四个数加模型档；决策树，训练集是评测网格；输出三类取一、四因子各一档，附预测regret。</li>
+    <li><b>执行。</b>原语：会话池K、榜（分数、复现步骤、谱系，sha256重打分）、租约加共享完成态、按角色的上下文与权限作用域、验证器露出层数m、检查点。配置只是在这些原语上取值。</li>
+    <li><b>调度。</b>每个检查点：读榜，算每个会话的边际进展对独立采样参考线，低于线收掉，预算并给高于线，从领先者fork带变体；预算用完或连续两个检查点无改进就停。总token恒等于预算。</li>
+    <li><b>记账。</b>Cost/Task、Cost/Submission、探测成本、六个协调指标、每个决定的日志。写回评测网格。</li>
+  </ol>
+  <p>不变量五条，任何一步都不能破：总token恒等于预算；榜条目可复现；协议由运行时强制，不靠prompt；共享产物写入串行；每个决定留日志，regret可审计。</p>
+  <p>和现有工作的边界：MaAS到MACA八家做的是选择这一步且候选没有共享型；ATM、TacoMAS、DyLAN做的是调度这一步且只砍不并；DeLM做的是执行层的榜和队列；grite做的是执行层的租约。五步合一、每步有评测产出的数作依据，没人做过。</p>
+  </div>
+</section>
+
+<footer class="ar-foot">
+  证据页：<a href="../multi-agent-gain/">多agent的收益从哪来</a>（三十篇的原始数字）· <a href="../multi-agent-coordination/">多agent怎么协调</a>（六种派活方式和LATTE）。文献定位在pingce仓库<span class="num">4.汇报/4.4-related-work.md</span>，抠数记录在<span class="num">5.素材/5.8-数据/</span>。
+</footer>
+</main>
+</div>
+<script>
+/* 照 Chai 的 animator 写的播放头框架。用法：
+   var A = animator(fig, draw, 8000, {hold:1500, extra:[['换一张', fn]], label:function(p){return '...'}});
+   draw(p) 负责把 0..1 的播放头画成那一帧。fig 里要有一个 .fx-row 放按钮。
+   暂停存住位置，重播归零，滚进视野自动播、滚走自动停；prefers-reduced-motion 时直接画最后一帧。 */
+function animator(fig, draw, DUR, opt) {
+  opt = opt || {};
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ctl = fig.querySelector('.fx-row');
+  function mk(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'fx-btn'; b.textContent = label; b.addEventListener('click', fn); ctl.appendChild(b); return b; }
+  if (opt.extra) opt.extra.forEach(function (e) { mk(e[0], function () { e[1](); A.restart(); }); });
+  var btn = mk('暂停', function () { if (running) { st.paused = true; stop(); } else { st.paused = false; if (st.p >= 1) st.p = 0; play(); } });
+  mk('重播', function () { st.paused = false; stop(); st.p = 0; play(); });
+  var out = document.createElement('span'); out.className = 'fx-readouts'; ctl.appendChild(out);
+  var st = { p: 0, paused: false }, raf = null, start = 0, hold = 0, running = false, inView = false, HOLD = opt.hold || 1400;
+  function show(p) { st.p = p; draw(p); if (opt.label) out.innerHTML = opt.label(p); }
+  function tick(ts) {
+    if (!start) start = ts - (st.p || 0) * DUR;
+    var p = (ts - start) / DUR;
+    if (p >= 1) { show(1); if (!hold) hold = ts + HOLD; if (ts >= hold) { start = ts; hold = 0; st.p = 0; } raf = requestAnimationFrame(tick); return; }
+    show(p); raf = requestAnimationFrame(tick);
+  }
+  function play() { if (running) return; if (reduce) { show(1); return; } running = true; start = 0; hold = 0; raf = requestAnimationFrame(tick); btn.textContent = '暂停'; }
+  function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; btn.textContent = '播放'; }
+  var A = { play: play, stop: stop, redraw: function () { show(reduce ? 1 : st.p); },
+    restart: function () { stop(); st.p = 0; if (reduce) { show(1); return; } if (inView && !st.paused) play(); else show(0); } };
+  if (!reduce && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; if (inView && !st.paused) play(); else if (!inView) stop(); }); }, { threshold: 0.2 });
+    io.observe(fig);
+  } else inView = true;
+  show(reduce ? 1 : 0);
+  return A;
+}
+/* 高分屏画布：只读一次原始高度，别把像素高写回去再读（会指数涨） */
+function hidpi(cv) {
+  if (!cv.dataset.h) cv.dataset.h = cv.getAttribute('height');
+  var r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, h = +cv.dataset.h;
+  cv.width = Math.round(r.width * d); cv.height = Math.round(h * d); cv.style.height = h + 'px';
+  var c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); return { ctx: c, W: r.width, H: h };
+}
+
+</script>
+<script>
+(function(){
+'use strict';
+var R=document.documentElement,reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function css(n){return getComputedStyle(R).getPropertyValue(n).trim();}
+function el(n,a,p){var x=document.createElementNS('http://www.w3.org/2000/svg',n);for(var k in a)x.setAttribute(k,a[k]);if(p)p.appendChild(x);return x;}
+function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
+function fmt(x,d){return (+x).toFixed(d==null?2:d);}
+function ease(q){return q<0.5?2*q*q:1-Math.pow(-2*q+2,2)/2;}
+function clamp01(x){return x<0?0:x>1?1:x;}
+function rgb(c){c=c.trim();if(c[0]==='#'){var h=c.slice(1);return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16),1];}var m=c.match(/[\d.]+/g)||[0,0,0,1];return [+m[0],+m[1],+m[2],m.length>3?+m[3]:1];}
+function alpha(c,a){var A=rgb(c);return 'rgba('+A[0]+','+A[1]+','+A[2]+','+fmt(a,3)+')';}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+(function(){var figs=document.querySelectorAll('figure.viz');if(reduce||!('IntersectionObserver' in window)){figs.forEach(function(f){f.classList.add('in');});return;}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:0.25});figs.forEach(function(f){io.observe(f);});})();
+
+
+function T(s,x,y,str,cls,anchor,extra){var a={x:x,y:y,'class':cls||'lbl','text-anchor':anchor||'start'};if(extra)for(var k in extra)a[k]=extra[k];var t=el('text',a,s);t.textContent=str;return t;}
+function grid(s,L,R_,Tp,B,xt,yt,xs,ys,opt){opt=opt||{};
+  yt.forEach(function(t){var y=ys(t[0]);el('line',{x1:L,x2:R_,y1:y,y2:y,stroke:css('--ch-grid'),'stroke-width':1},s);T(s,L-8,y+4,t[1],'fx-tick','end');});
+  xt.forEach(function(t){var x=xs(t[0]);if(opt.xgrid)el('line',{x1:x,x2:x,y1:Tp,y2:B,stroke:css('--ch-grid'),'stroke-width':1},s);T(s,x,B+16,t[1],'fx-tick','middle');});
+  el('line',{x1:L,x2:R_,y1:B,y2:B,stroke:css('--ch-axis'),'stroke-width':1},s);
+}
+function path(s,pts,stroke,w,dash,extra){var d='';pts.forEach(function(p,i){d+=(i?'L':'M')+fmt(p[0],1)+' '+fmt(p[1],1);});var a={d:d,fill:'none',stroke:stroke,'stroke-width':w||2,'stroke-linejoin':'round','stroke-linecap':'round'};if(dash)a['stroke-dasharray']=dash;if(extra)for(var k in extra)a[k]=extra[k];return el('path',a,s);}
+function dot(s,x,y,r,fill,extra){var a={cx:x,cy:y,r:r,fill:fill};if(extra)for(var k in extra)a[k]=extra[k];return el('circle',a,s);}
+function box(s,x,y,w,h,fill,stroke,extra){var a={x:x,y:y,width:w,height:h,rx:3,fill:fill,stroke:stroke||css('--rule')};if(extra)for(var k in extra)a[k]=extra[k];return el('rect',a,s);}
+
+/* ---------- 1 动态并拨：canvas ---------- */
+(function(){
+  var fig=document.getElementById('f-realloc'),cv=fig.querySelector('canvas'),geo;
+  /* 四个会话，两次检查点 */
+  var CK=[0.4,0.72],PAL=['#4285F4','#EA4335','#F29900','#188038','#9334E6','#12B5CB','#E52592','#B06000'];
+  function mkLane(id,rate,cap,born,parent,col){return {id:id,rate:rate,cap:cap,born:born,dead:null,parent:parent,col:col,base:0,hatch:parent!=null};}
+  var lanes;
+  function build(){var pi=4;lanes=[mkLane('A',2.4,0.80,0,null,PAL[0]),mkLane('B',2.0,0.70,0,null,PAL[1]),mkLane('C',4.5,0.60,0,null,PAL[2]),mkLane('D',1.5,0.55,0,null,PAL[3])];
+    /* 预先推演：每个检查点淘汰后一半，前一半各fork一个变体 */
+    CK.forEach(function(ck,ci){var alive=lanes.filter(function(l){return l.dead==null;});alive.sort(function(a,b){return score(b,ck)-score(a,ck);});
+      var keep=alive.slice(0,Math.ceil(alive.length/2)),kill=alive.slice(Math.ceil(alive.length/2));
+      kill.forEach(function(l){l.dead=ck;});
+      keep.forEach(function(p,i){var c=mkLane(p.id+(ci+1),p.rate*(i?0.9:1.25),Math.min(0.98,p.cap+0.1+0.04*ci),ck,p,PAL[pi++]);c.base=score(p,ck);c.row=kill[i]?kill[i].row:null;lanes.push(c);});
+    });
+    var rows=0;lanes.forEach(function(l){if(l.row==null){if(l.parent==null)l.row=rows++;else{var dead=lanes.filter(function(k){return k.dead===l.born&&k.taken!==true;});if(dead.length){dead[0].taken=true;l.row=dead[0].row;}else l.row=rows++;}}});
+    lanes.forEach(function(l){delete l.taken;});
+  }
+  function score(l,t){if(t<l.born)return null;var dt=Math.min(t,l.dead==null?t:l.dead)-l.born;return l.base+(l.cap-l.base)*(1-Math.exp(-l.rate*dt));}
+  function relayout(){geo=hidpi(cv);}
+  function draw(p){var ctx=geo.ctx,W=geo.W,H=geo.H;ctx.clearRect(0,0,W,H);var t=p;
+    var LW=W*0.46,L0=46,top=34,rowh=44,rows=4;
+    ctx.font='600 13px '+css('--font-sans');ctx.fillStyle=css('--ink');ctx.textAlign='left';ctx.fillText('会话和它花掉的token',L0,18);
+    ctx.fillText('榜上的分',LW+70,18);
+    /* 检查点竖线 */
+    ctx.setLineDash([3,3]);ctx.strokeStyle=css('--ink-3');ctx.lineWidth=1;CK.forEach(function(ck,i){var x=L0+(LW-L0-10)*ck;ctx.beginPath();ctx.moveTo(x,top-8);ctx.lineTo(x,top+rows*rowh);ctx.stroke();ctx.fillStyle=css('--ink-3');ctx.font='11px '+css('--font-mono');ctx.textAlign='center';ctx.fillText('检查点'+(i+1),x,top+rows*rowh+14);});ctx.setLineDash([]);
+    lanes.forEach(function(l){if(t<l.born)return;var y=top+l.row*rowh,x0=L0+(LW-L0-10)*l.born,end=Math.min(t,l.dead==null?t:l.dead),x1=L0+(LW-L0-10)*end,col=l.col,deadNow=l.dead!=null&&t>=l.dead;
+      ctx.fillStyle=deadNow?css('--rule'):alpha(col,l.hatch?0.55:0.9);ctx.fillRect(x0,y+8,Math.max(2,x1-x0),22);if(deadNow){ctx.fillStyle=col;ctx.fillRect(x0,y+8,4,22);}
+      if(l.hatch&&!deadNow){ctx.save();ctx.beginPath();ctx.rect(x0,y+8,x1-x0,22);ctx.clip();ctx.strokeStyle=alpha(col,0.9);ctx.lineWidth=1.2;for(var k=x0-22;k<x1;k+=7){ctx.beginPath();ctx.moveTo(k,y+30);ctx.lineTo(k+22,y+8);ctx.stroke();}ctx.restore();}
+      var taken=deadNow&&lanes.some(function(k){return k.born===l.dead&&k.row===l.row&&t>=k.born;});if(!taken){ctx.fillStyle=deadNow?css('--ink-4'):col;ctx.font='600 11.5px '+css('--font-mono');ctx.textAlign='right';ctx.fillText(l.id,L0-8,y+23);}
+      if(deadNow&&t-l.dead<0.06){ctx.fillStyle=css('--ink-4');ctx.font='10.5px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('淘汰，预算转出',x1+6,y+23);}
+      else if(l.hatch&&t-l.born<0.08){ctx.fillStyle=col;ctx.font='10.5px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('从'+l.parent.id+' fork，带变体',x1+6,y+23);}
+    });
+    /* 右边：分数曲线 */
+    var RL=LW+70,RR=W-16,RT=34,RB=top+rows*rowh,xs=function(u){return RL+(RR-RL)*u;},ys=function(v){return RT+(RB-RT)*(1-v);};
+    ctx.strokeStyle=css('--ch-axis');ctx.beginPath();ctx.moveTo(RL,RB);ctx.lineTo(RR,RB);ctx.moveTo(RL,RT);ctx.lineTo(RL,RB);ctx.stroke();
+    ctx.setLineDash([3,3]);ctx.strokeStyle=css('--ink-3');CK.forEach(function(ck){ctx.beginPath();ctx.moveTo(xs(ck),RT);ctx.lineTo(xs(ck),RB);ctx.stroke();});ctx.setLineDash([]);
+    lanes.forEach(function(l){if(t<l.born)return;var end=Math.min(t,l.dead==null?t:l.dead),col=l.col,deadNow=l.dead!=null&&t>=l.dead;ctx.strokeStyle=deadNow?alpha(col,0.25):col;ctx.lineWidth=l.hatch?2.6:2.2;if(l.hatch)ctx.setLineDash([5,3]);ctx.beginPath();for(var u=l.born;u<=end+1e-9;u+=0.01){var v=score(l,u);if(u===l.born)ctx.moveTo(xs(u),ys(v));else ctx.lineTo(xs(u),ys(v));}ctx.stroke();ctx.setLineDash([]);
+      if(!deadNow){ctx.fillStyle=col;ctx.beginPath();ctx.arc(xs(end),ys(score(l,end)),3,0,6.3);ctx.fill();}});
+    /* 领先者标注 */
+    var alive=lanes.filter(function(l){return t>=l.born&&(l.dead==null||t<l.dead);});if(alive.length){alive.sort(function(a,b){return score(b,t)-score(a,t);});var best=alive[0];ctx.fillStyle=css('--ink');ctx.font='11px '+css('--font-mono');var lx=xs(t),right=lx>RR-90;ctx.textAlign=right?'right':'left';ctx.fillText('领先 '+best.id+' '+fmt(score(best,t),2),right?lx-8:lx+8,ys(score(best,t))-8);}
+    ctx.fillStyle=css('--ink-3');ctx.font='11px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('总token = 4 × 单会话 × t，和固定切4份一样',L0,H-10);
+    ctx.textAlign='right';ctx.fillText('t = '+fmt(t,2),W-16,H-10);
+  }
+  build();relayout();
+  var A=animator(fig,draw,9000,{hold:2500,label:function(p){var alive=lanes.filter(function(l){return p>=l.born&&(l.dead==null||p<l.dead);}).length;return '活着的会话 <b>'+alive+'</b> · 检查点过了 <b>'+CK.filter(function(c){return p>=c;}).length+'</b> 个';}});
+  new ResizeObserver(function(){relayout();A.redraw();}).observe(cv);
+})();
+
+/* ---------- 2 预期：三种分法 ---------- */
+(function(){
+  var s=document.querySelector('#f-expect1 svg');
+  var L=56,Rr=560,Tp=20,Bt=250,xs=function(u){return L+(Rr-L)*u;},ys=function(v){return Tp+(Bt-Tp)*(1-v);};
+  grid(s,L,Rr,Tp,Bt,[[0,'1M'],[0.33,'10M'],[0.67,'100M'],[1,'1B']],[[0.2,''],[0.4,''],[0.6,''],[0.8,'']],xs,ys,{xgrid:true});
+  T(s,(L+Rr)/2,Bt+34,'总token（对数）','fx-axis-title','middle');T(s,14,Tp-4,'分数','fx-axis-title');
+  function single(u){return 0.85*(1-Math.exp(-4.2*u))*(u<0.45?1:1)+ (u>0.45?0:0);}
+  var P1=[],P2=[],P3=[];for(var u=0;u<=1.0001;u+=0.02){var a=0.82*(1-Math.exp(-5*u));var b=u<0.3?a-0.12*(0.3-u)/0.3-0.02:a+0.10*Math.min(1,(u-0.3)/0.5);var c=u<0.38?a:a+0.17*Math.min(1,(u-0.38)/0.45);P1.push([xs(u),ys(a)]);P2.push([xs(u),ys(Math.max(0,b))]);P3.push([xs(u),ys(c)]);}
+  path(s,P1,css('--ink'),2.2);path(s,P2,css('--ch-ref'),2.2);path(s,P3,css('--ch-s2'),2.4,'6 4');
+  el('line',{x1:xs(0.38),x2:xs(0.38),y1:Tp,y2:Bt,stroke:css('--accent'),'stroke-dasharray':'3 3'},s);T(s,xs(0.38)+6,Tp+14,'拐点：边际分数掉到独立采样线以下','q');
+  T(s,xs(0.12),ys(0.14),'协调税区：固定切份输给单会话','q');
+  T(s,Rr+8,ys(0.82)+4,'一个会话','lbl');T(s,Rr+8,ys(0.92)+4,'固定切3份','lbl');T(s,Rr+8,ys(0.99)+4,'动态并拨','lbl strong');
+  T(s,Rr-4,Bt-10,'Liu实测@100M：1份1981 · 3份2245 · 10份1890 Elo','fx-tick','end');
+})();
+
+/* ---------- 3 验证粒度扫描 ---------- */
+(function(){
+  var fig=document.getElementById('f-granularity'),s=fig.querySelector('svg');
+  var L=60,Rr=640,Tp=20,Bt=230,ms=[1,2,3,4,6,8],xs=function(m){return L+(Rr-L)*(Math.log2(m))/3;},ys=function(v){return Tp+(Bt-Tp)*(1-(v+4)/14);};
+  function draw(p){clear(s);var q=ease(p);
+    grid(s,L,Rr,Tp,Bt,ms.map(function(m){return [m,'m='+m];}),[[-4,'−4'],[0,'0'],[4,'+4'],[8,'+8']],xs,ys,{xgrid:true});
+    el('line',{x1:L,x2:Rr,y1:ys(0),y2:ys(0),stroke:css('--ink'),'stroke-width':1},s);
+    T(s,(L+Rr)/2,Bt+34,'验证器能分辨的进展段数m','fx-axis-title','middle');T(s,14,Tp-4,'team@k − best@k，百分点','fx-axis-title');
+    var pts=[];for(var m=1;m<=8.001;m+=0.1){var v=-1.7+7.5*(1-Math.exp(-(m-1)*0.5));pts.push([xs(m),ys(v)]);}
+    var n=Math.max(2,Math.round(pts.length*q));path(s,pts.slice(0,n),css('--ch-s2'),2.4,'6 4');
+    dot(s,xs(1),ys(-1.7),6,css('--ink'));T(s,xs(1)+10,ys(-1.7)+14,'Park · Terminal-Bench 2.0：m≈1，−1.7','lbl strong');
+    if(q>0.9){dot(s,xs(6),ys(5.8),6,css('--ink'));T(s,xs(6)-10,ys(5.8)-10,'Park · ARC-AGI-3：m≈6，+5.8','lbl strong','end');}
+    if(q>0.5){var zx=xs(1+Math.log(7.5/5.8)/-0.5*-1);T(s,xs(2.2),ys(0)-8,'穿零点，实验定','q');}
+  }
+  animator(fig,draw,3000,{hold:3000});
+})();
+
+/* ---------- 4 路由示意：流动 ---------- */
+(function(){
+  var fig=document.getElementById('f-router'),s=fig.querySelector('svg');
+  var nodes={task:[20,120,110,52,'任务进来'],probe:[170,70,150,152,'探测一分钟'],route:[360,70,150,152,'决策树'],mech:[550,34,150,108,'选出的配置'],cost:[550,166,150,78,'探测成本记账']};
+  var sig=['工具调用熵','并行宽度','有无中途验证器','第一分钟进展斜率'],cfg=['三类：切分 / 独立 / 共享','拓扑 · 记忆共享','权限 · 调度'];
+  function draw(p){clear(s);
+    for(var k in nodes){var n=nodes[k];box(s,n[0],n[1],n[2],n[3],k==='mech'?alpha(css('--ch-s1'),.08):k==='cost'?alpha(css('--ch-s2'),.08):css('--paper-2'));T(s,n[0]+10,n[1]+20,n[4],'qt');}
+    sig.forEach(function(t,i){T(s,180,110+i*24,'· '+t,'q');});
+    cfg.forEach(function(t,i){T(s,560,78+i*20,t,'q');});
+    T(s,560,206,'探测那一分钟的token','q');T(s,560,226,'计进regret第三列','q');
+    T(s,370,110,'14到80个case训一棵树','q');T(s,370,134,'输入4个信号','q');T(s,370,158,'输出三类×四因子','q');T(s,370,190,'Kim用回归到87%','q','start',{'class':'fx-tick'});
+    var edges=[[130,146,170,146],[320,146,360,146],[510,120,550,88],[510,170,550,205]];
+    edges.forEach(function(e){el('line',{x1:e[0],y1:e[1],x2:e[2],y2:e[3],stroke:css('--ink-3'),'stroke-width':1.2},s);});
+    /* 小点沿边流动 */
+    edges.forEach(function(e,i){var q=(p*3+i*0.25)%1;dot(s,e[0]+(e[2]-e[0])*q,e[1]+(e[3]-e[1])*q,3.5,css(i===3?'--ch-s2':'--ch-s1'));});
+  }
+  animator(fig,draw,4000,{hold:0});
+})();
+
+/* ---------- 5 翻转矩阵 + regret ---------- */
+(function(){
+  var a=document.getElementById('regret-a'),b=document.getElementById('regret-b');
+  var cases=['fan-out A','fan-out B','verifier A','verifier B','认领 A','认领 B'],mech=['切分','独立','共享'];
+  var rank=[[1,3,2],[3,1,2],[2,3,1],[3,2,1],[1,3,2],[3,1,2]];
+  var L=90,Tp=30,cw=70,ch=32;
+  mech.forEach(function(m,j){T(a,L+j*cw+cw/2,20,m,'fx-tick','middle');});
+  cases.forEach(function(c,i){T(a,L-8,Tp+i*ch+ch/2+4,c,'lbl','end');rank[i].forEach(function(r,j){box(a,L+j*cw+2,Tp+i*ch+2,cw-4,ch-4,alpha(css('--ch-s1'),r===1?.55:r===2?.25:.07),'none',{'class':'anim-fade',style:'--d:'+(i*60+j*40)+'ms'});T(a,L+j*cw+cw/2,Tp+i*ch+ch/2+4,'第'+r,'lbl strong','middle');});
+    if(i%2===1)el('line',{x1:L-80,x2:L+cw*3,y1:Tp+(i+1)*ch,y2:Tp+(i+1)*ch,stroke:css('--rule')},a);});
+  T(a,L-80,Tp+6*ch+22,'同一对A、B两行颜色反过来，才叫翻转','q');
+  var bars=[['固定选最好的一个',0.28],['路由器',0.11],['路由器扣探测成本',0.16]],L2=40,R2=310,T2=30,B2=210,bw=60,ys=function(v){return T2+(B2-T2)*(1-v/0.35);};
+  grid(b,L2,R2,T2,B2,[],[[0,'0'],[0.1,'.10'],[0.2,'.20'],[0.3,'.30']],null,ys);
+  bars.forEach(function(k,i){var x=L2+20+i*((R2-L2-40)/3);box(b,x,ys(k[1]),bw,B2-ys(k[1]),i===2?alpha(css('--ch-s2'),.6):css('--ch-s1'),'none',{'class':'anim-fade',style:'--d:'+(i*90)+'ms',rx:0});T(b,x+bw/2,ys(k[1])-6,fmt(k[1],2),'lbl strong','middle');k[0].split('扣').forEach(function(t,j){T(b,x+bw/2,B2+16+j*13,j?'扣'+t:t,'fx-tick','middle',{'font-size':'10px'});});});
+  el('line',{x1:L2,x2:R2,y1:ys(0.10),y2:ys(0.10),stroke:css('--accent'),'stroke-dasharray':'3 3'},b);T(b,R2,ys(0.10)-4,'COVER预注册线0.10','fx-tick','end');
+  T(b,L2,T2-10,'regret = 逐case最优 − 选法拿到的，示意值','q');
+})();
+
+/* ---------- 6 两层 ---------- */
+(function(){
+  var s=document.querySelector('#f-stack svg');
+  box(s,20,30,200,70,alpha(css('--ch-s1'),.08));T(s,32,52,'开跑前：主线二','qt');T(s,32,74,'一分钟探测 → 三类×四因子','q');T(s,32,92,'一次决定','q');
+  box(s,260,30,200,70,alpha(css('--ch-s2'),.08));T(s,272,52,'运行中：主线一','qt');T(s,272,74,'检查点 → 淘汰、并拨、fork','q');T(s,272,92,'每个检查点决定一次','q');
+  box(s,500,30,200,70,css('--paper-2'));T(s,512,52,'结果','qt');T(s,512,74,'效果 · Cost/Task · Cost/Submission','q');T(s,512,92,'六个协调指标 · fork谱系','q');
+  [[220,65,260,65],[460,65,500,65]].forEach(function(e){el('line',{x1:e[0],y1:e[1],x2:e[2],y2:e[3],stroke:css('--ink-3'),'stroke-width':1.2},s);el('polygon',{points:(e[2]-6)+','+(e[3]-4)+' '+e[2]+','+e[3]+' '+(e[2]-6)+','+(e[3]+4),fill:css('--ink-3')},s);});
+  box(s,20,130,680,70,'none',css('--rule'),{'stroke-dasharray':'4 3'});T(s,32,152,'共用：同一批case（三个家族）· 同一个grader · 同一套成本计量 · 单agent best-of-k基线 · 噪声地板','q');
+  T(s,32,176,'主线二的「调度」因子取值 = 主线一的开关：共享型按榜并拨，切分型按子任务回收，独立型就是best-of-k','q');
+})();
+
+/* ---------- 通用：带标题的多行文字框 ---------- */
+function tbox(s,x,y,w,h,title,lines,fill,opt){opt=opt||{};box(s,x,y,w,h,fill||css('--paper-2'),opt.stroke||css('--rule'),opt.extra);if(title)T(s,x+12,y+20,title,'qt');(lines||[]).forEach(function(t,i){T(s,x+12,y+(title?40:18)+i*17,t,opt.cls||'q');});}
+function arrow(s,x1,y1,x2,y2,col){col=col||css('--ink-3');el('line',{x1:x1,y1:y1,x2:x2,y2:y2,stroke:col,'stroke-width':1.3},s);var a=Math.atan2(y2-y1,x2-x1),L=7;el('polygon',{points:x2+','+y2+' '+(x2-L*Math.cos(a-0.5))+','+(y2-L*Math.sin(a-0.5))+' '+(x2-L*Math.cos(a+0.5))+','+(y2-L*Math.sin(a+0.5)),fill:col},s);}
+/* 竖排决策链：每行一个问题框，右边一个「不成立」分支 */
+function stepChain(s,rows,opt){opt=opt||{};var L=52,W=436,RX=534,RW=176,top=10,rh=opt.rh||74;
+  rows.forEach(function(r,i){var y=top+i*rh;var g=el('g',{'class':'anim-fade',style:'--d:'+(i*140)+'ms'},s);
+    dot(g,24,y+22,12,css('--ink'));T(g,24,y+26,String(i+1),'lbl','middle',{style:'fill:#fff;font-weight:600'});
+    box(g,L,y,W,rh-12,css('--paper-2'));T(g,L+12,y+20,r[0],'qt');T(g,L+12,y+38,r[1],'q');T(g,L+12,y+54,r[2],'q');
+    box(g,RX,y+8,RW,rh-28,alpha(css('--ch-s2'),.07),alpha(css('--ch-s2'),.5));T(g,RX+10,y+26,'不成立 →','fx-tick');T(g,RX+10,y+42,r[3],'q');
+    arrow(g,L+W,y+30,RX,y+30,alpha(css('--ch-s2'),.6));
+    if(i<rows.length-1)arrow(s,L+W/2,y+rh-12,L+W/2,y+rh,css('--ink-3'));
+  });
+}
+
+
+/* ---------- 9 meta-harness：一道任务走五步 ---------- */
+(function(){
+  var fig=document.getElementById('f-mh-life'),cv=fig.querySelector('canvas'),geo;
+  var PH=[['探测',0,0.14],['选择',0.14,0.26],['执行',0.26,0.52],['调度',0.52,0.84],['记账',0.84,1]];
+  var PAL=['#4285F4','#EA4335','#F29900','#188038','#9334E6','#12B5CB','#E52592','#B06000'];
+  /* 会话模拟，和第1节同一套 */
+  var CK=[0.4,0.72],lanes;
+  function mkLane(id,rate,cap,born,parent,col){return {id:id,rate:rate,cap:cap,born:born,dead:null,parent:parent,col:col,base:0,hatch:parent!=null};}
+  function score(l,t){if(t<l.born)return null;var dt=Math.min(t,l.dead==null?t:l.dead)-l.born;return l.base+(l.cap-l.base)*(1-Math.exp(-l.rate*dt));}
+  function build(){var pi=4;lanes=[mkLane('A',2.4,0.80,0,null,PAL[0]),mkLane('B',2.0,0.70,0,null,PAL[1]),mkLane('C',4.5,0.60,0,null,PAL[2]),mkLane('D',1.5,0.55,0,null,PAL[3])];
+    CK.forEach(function(ck,ci){var alive=lanes.filter(function(l){return l.dead==null;});alive.sort(function(a,b){return score(b,ck)-score(a,ck);});
+      var keep=alive.slice(0,Math.ceil(alive.length/2)),kill=alive.slice(Math.ceil(alive.length/2));kill.forEach(function(l){l.dead=ck;});
+      keep.forEach(function(p,i){var c=mkLane(p.id+(ci+1),p.rate*(i?0.9:1.25),Math.min(0.98,p.cap+0.1+0.04*ci),ck,p,PAL[pi++]);c.base=score(p,ck);c.row=kill[i]?kill[i].row:null;lanes.push(c);});});
+    var rows=0;lanes.forEach(function(l){if(l.row==null){if(l.parent==null)l.row=rows++;else{var dead=lanes.filter(function(k){return k.dead===l.born&&k.taken!==true;});if(dead.length){dead[0].taken=true;l.row=dead[0].row;}else l.row=rows++;}}});lanes.forEach(function(l){delete l.taken;});}
+  function relayout(){geo=hidpi(cv);}
+  function sub(p,a,b){return clamp01((p-a)/(b-a));}
+  function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function draw(p){var ctx=geo.ctx,W=geo.W,H=geo.H;ctx.clearRect(0,0,W,H);
+    var cur=0;PH.forEach(function(ph,i){if(p>=ph[1])cur=i;});
+    /* 顶部步骤条 */
+    var sx=24,sw=(W-48)/5;PH.forEach(function(ph,i){var x=sx+i*sw,on=i===cur,done=i<cur;ctx.fillStyle=on?css('--ink'):done?alpha(css('--ink'),0.35):css('--rule-2');rr(ctx,x+4,10,sw-8,26,13);ctx.fill();ctx.fillStyle=on||done?css('--paper'):css('--ink-3');ctx.font='600 12.5px '+css('--font-sans');ctx.textAlign='center';ctx.fillText((i+1)+' '+ph[0],x+sw/2,28);});
+    var top=58;
+    if(cur===0){/* 探测 */var q=sub(p,0,0.14);
+      ctx.fillStyle=css('--paper-2');rr(ctx,24,top+10,170,96,4);ctx.fill();ctx.strokeStyle=css('--rule');ctx.stroke();
+      ctx.fillStyle=css('--ink');ctx.font='600 13px '+css('--font-sans');ctx.textAlign='left';ctx.fillText('任务进来',36,top+32);ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-mono');ctx.fillText('feature-coupled',36,top+54);ctx.fillText('seed 7 · Opus档',36,top+72);ctx.fillText('m=1 按模块',36,top+90);
+      ctx.strokeStyle=css('--ink-3');ctx.beginPath();ctx.moveTo(194,top+58);ctx.lineTo(236,top+58);ctx.stroke();ctx.fillStyle=css('--ink-3');ctx.beginPath();ctx.moveTo(236,top+58);ctx.lineTo(228,top+53);ctx.lineTo(228,top+63);ctx.fill();
+      ctx.fillStyle=css('--ink');ctx.font='600 13px '+css('--font-sans');ctx.fillText('跑一分钟单agent，读四个数',250,top+22);
+      var G=[['工具调用熵',0.72,'0.72 高，工具多'],['并行宽度估计',0.5,'2，两条独立线'],['有无中途验证器',1,'有，按模块的测试'],['第一分钟进展斜率',0.35,'0.35 慢，一个人走不快']];
+      G.forEach(function(g,i){var y=top+44+i*34,x=250,w=W-24-x-170,f=clamp01(q*1.6-i*0.15);ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-sans');ctx.textAlign='left';ctx.fillText(g[0],x,y+4);ctx.fillStyle=css('--rule-2');ctx.fillRect(x+130,y-8,w-130,16);ctx.fillStyle=PAL[i];ctx.fillRect(x+130,y-8,(w-130)*g[1]*f,16);if(f>0.6){ctx.fillStyle=css('--ink-2');ctx.font='11.5px '+css('--font-mono');ctx.fillText(g[2],x+w+10,y+4);}});
+      ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('这一分钟的token记进regret第三列',250,top+190);
+    }
+    if(cur===1){/* 选择 */var q=sub(p,0.14,0.26);
+      ctx.fillStyle=css('--ink');ctx.font='600 13px '+css('--font-sans');ctx.textAlign='left';ctx.fillText('决策树在三类 × 四因子里点亮一个配置',24,top+18);
+      var cols=['拓扑','记忆共享','权限','调度'],rows=['切分','独立','共享'],cell=[['星 / 网 / 链','隔离 / 摘要 / 全共享','全开 / 按角色 / 按任务','固定 / 回收'],['无边','隔离','全开','best-of-k / 并拨'],['广播到榜','榜共享','按角色作用域','固定 / 并拨']];
+      var x0=100,y0=top+34,cw=(W-24-x0)/4,ch=46;cols.forEach(function(c,j){ctx.fillStyle=css('--ink-3');ctx.font='11.5px '+css('--font-mono');ctx.textAlign='center';ctx.fillText(c,x0+j*cw+cw/2,y0+12);});
+      rows.forEach(function(r,i){ctx.fillStyle=css('--ink');ctx.font='600 12.5px '+css('--font-sans');ctx.textAlign='right';ctx.fillText(r,x0-12,y0+22+i*ch+ch/2+4);cell[i].forEach(function(t,j){var x=x0+j*cw+3,y=y0+22+i*ch+3,chosen=i===2,f=chosen?clamp01(q*2.2-j*0.3):0;ctx.fillStyle=css('--paper-2');rr(ctx,x,y,cw-6,ch-6,3);ctx.fill();if(f>0){ctx.fillStyle=alpha(PAL[4],0.12+0.5*f);rr(ctx,x,y,cw-6,ch-6,3);ctx.fill();ctx.strokeStyle=PAL[4];ctx.lineWidth=1.5;ctx.stroke();}ctx.fillStyle=f>0.5?css('--ink'):css('--ink-3');ctx.font=(f>0.5?'600 ':'')+'12px '+css('--font-sans');ctx.textAlign='center';ctx.fillText(t,x+(cw-6)/2,y+(ch-6)/2+4);});});
+      if(q>0.7){ctx.fillStyle=css('--ink');ctx.font='12.5px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('选：共享型 · 广播到榜 · 榜共享 · 按角色作用域 · 并拨',24,top+200);ctx.fillStyle=css('--ink-3');ctx.fillText('预测regret 0.06 < 固定最优 0.11 → 采用；反过来就用固定最优',24,top+220);}
+    }
+    if(cur===2||cur===3){/* 执行 + 调度 */var t=sub(p,0.26,0.84);
+      var LW=W*0.52,L0=60,ty=top+30,rowh=38,rows=4;
+      ctx.fillStyle=css('--ink');ctx.font='600 13px '+css('--font-sans');ctx.textAlign='left';ctx.fillText(cur===2?'执行：K=4个会话，各自worktree，共享一张榜':'调度：检查点淘汰后一半，预算并给前一半，从领先者fork',24,top+12);
+      ctx.setLineDash([3,3]);ctx.strokeStyle=css('--ink-3');ctx.lineWidth=1;CK.forEach(function(ck,i){var x=L0+(LW-L0-10)*ck;ctx.beginPath();ctx.moveTo(x,ty-6);ctx.lineTo(x,ty+rows*rowh);ctx.stroke();ctx.fillStyle=css('--ink-3');ctx.font='11px '+css('--font-mono');ctx.textAlign='center';ctx.fillText('检查点'+(i+1),x,ty+rows*rowh+14);});ctx.setLineDash([]);
+      lanes.forEach(function(l){if(t<l.born)return;var y=ty+l.row*rowh,x0=L0+(LW-L0-10)*l.born,end=Math.min(t,l.dead==null?t:l.dead),x1=L0+(LW-L0-10)*end,col=l.col,deadNow=l.dead!=null&&t>=l.dead;
+        ctx.fillStyle=deadNow?css('--rule'):alpha(col,l.hatch?0.55:0.9);ctx.fillRect(x0,y+6,Math.max(2,x1-x0),20);if(deadNow){ctx.fillStyle=col;ctx.fillRect(x0,y+6,4,20);}
+        if(l.hatch&&!deadNow){ctx.save();ctx.beginPath();ctx.rect(x0,y+6,x1-x0,20);ctx.clip();ctx.strokeStyle=alpha(col,0.9);ctx.lineWidth=1.2;for(var k=x0-20;k<x1;k+=7){ctx.beginPath();ctx.moveTo(k,y+26);ctx.lineTo(k+20,y+6);ctx.stroke();}ctx.restore();}
+        var taken=deadNow&&lanes.some(function(k){return k.born===l.dead&&k.row===l.row&&t>=k.born;});if(!taken){ctx.fillStyle=deadNow?css('--ink-4'):col;ctx.font='600 11.5px '+css('--font-mono');ctx.textAlign='right';ctx.fillText(l.id,L0-8,y+20);}
+        if(l.hatch&&t-l.born<0.08){ctx.fillStyle=col;ctx.font='10.5px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('从'+l.parent.id+' fork，带变体',x1+6,y+20);}
+      });
+      /* 右边：榜 */
+      var bx=LW+40,by=ty-6,bw=W-24-bx;ctx.fillStyle=css('--paper-2');rr(ctx,bx,by,bw,rows*rowh+30,4);ctx.fill();ctx.strokeStyle=css('--rule');ctx.stroke();
+      ctx.fillStyle=css('--ink');ctx.font='600 12.5px '+css('--font-sans');ctx.textAlign='left';ctx.fillText('榜 board.jsonl',bx+12,by+18);ctx.fillStyle=css('--ink-3');ctx.font='10.5px '+css('--font-mono');ctx.textAlign='right';ctx.fillText('score · sha256重打分',bx+bw-12,by+18);
+      var alive=lanes.filter(function(l){return t>=l.born;}).map(function(l){return {l:l,s:score(l,t)};}).sort(function(a,b){return b.s-a.s;}).slice(0,5);
+      alive.forEach(function(e,i){var y=by+40+i*24,dead=e.l.dead!=null&&t>=e.l.dead;ctx.fillStyle=dead?css('--ink-4'):e.l.col;ctx.font='600 11.5px '+css('--font-mono');ctx.textAlign='left';ctx.fillText(e.l.id,bx+12,y);ctx.fillStyle=dead?css('--ink-4'):css('--ink');ctx.font='11.5px '+css('--font-mono');ctx.fillText(fmt(e.s,2),bx+60,y);ctx.fillStyle=css('--ink-3');ctx.font='10.5px '+css('--font-mono');ctx.fillText(dead?'淘汰':(e.l.parent?'parent '+e.l.parent.id:'root'),bx+110,y);ctx.fillStyle=css('--ch-s4');ctx.textAlign='right';ctx.fillText('✓',bx+bw-12,y);});
+      /* 底部：边际进展对参考线 */
+      var gy=ty+rows*rowh+40;ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-mono');ctx.textAlign='left';
+      if(cur===3){var bestAlive=lanes.filter(function(l){return t>=l.born&&(l.dead==null||t<l.dead);}).sort(function(a,b){return score(b,t)-score(a,t);})[0];ctx.fillText('每个检查点：边际进展低于独立采样参考线的收掉，预算并给高于线的；领先 '+bestAlive.id+' '+fmt(score(bestAlive,t),2)+'，总token恒等于预算',24,gy);}
+      else ctx.fillText('原语：榜 · 租约加共享完成态 · 按角色的上下文和权限作用域 · 验证器露出m层 · 检查点',24,gy);
+    }
+    if(cur===4){/* 记账 */var q=sub(p,0.84,1);
+      ctx.fillStyle=css('--ink');ctx.font='600 13px '+css('--font-sans');ctx.textAlign='left';ctx.fillText('记账一行，写回评测网格',24,top+18);
+      var items=[['Cost/Task','$23.9',0.8,PAL[0]],['Cost/Submission','$6.0',0.2,PAL[0]],['探测成本','$0.4',0.013,PAL[1]],['互相覆盖 / 次',' 3.1',0.1,PAL[3]],['CCE','0.41',0.41,PAL[3]]];
+      items.forEach(function(it,i){var y=top+48+i*30,x=170,w=260,f=clamp01(q*1.6-i*0.12);ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-sans');ctx.textAlign='right';ctx.fillText(it[0],x-12,y+4);ctx.fillStyle=css('--rule-2');ctx.fillRect(x,y-8,w,16);ctx.fillStyle=it[3];ctx.fillRect(x,y-8,w*it[2]*f,16);if(f>0.9){ctx.fillStyle=css('--ink-2');ctx.font='11.5px '+css('--font-mono');ctx.textAlign='left';ctx.fillText(it[1],x+w+10,y+4);}});
+      var rx=470,ry=top+40;ctx.fillStyle=css('--paper-2');rr(ctx,rx,ry,W-24-rx,130,4);ctx.fill();ctx.strokeStyle=css('--rule');ctx.stroke();
+      ctx.fillStyle=css('--ink');ctx.font='600 12.5px '+css('--font-sans');ctx.textAlign='left';ctx.fillText('regret三列',rx+12,ry+20);
+      [['固定最优','0.11'],['路由器','0.05'],['路由器＋探测','0.07']].forEach(function(r,i){var y=ry+44+i*24;ctx.fillStyle=css('--ink-3');ctx.font='11.5px '+css('--font-mono');ctx.fillText(r[0],rx+12,y);ctx.fillStyle=i===2?PAL[1]:css('--ink');ctx.font='600 11.5px '+css('--font-mono');ctx.textAlign='right';ctx.fillText(r[1],rx+(W-24-rx)-12,y);ctx.textAlign='left';});
+      if(q>0.6){ctx.fillStyle=PAL[2];ctx.font='600 12.5px '+css('--font-sans');ctx.textAlign='left';ctx.fillText('→ 回流：这一行进评测网格，选择器重训',24,top+215);}
+    }
+    ctx.fillStyle=css('--ink-3');ctx.font='11px '+css('--font-mono');ctx.textAlign='right';ctx.fillText('p = '+fmt(p,2),W-24,H-10);
+  }
+  build();relayout();
+  var A=animator(fig,draw,16000,{hold:2500,label:function(p){var cur=0;PH.forEach(function(ph,i){if(p>=ph[1])cur=i;});return '第 <b>'+(cur+1)+'</b> 步 · <b>'+PH[cur][0]+'</b>';}});
+  new ResizeObserver(function(){relayout();A.redraw();}).observe(cv);
+})();
+
+/* ---------- 10 五个前提：横排 ---------- */
+(function(){
+  var s=document.querySelector('#f-mh-chain svg');
+  var PAL=['#4285F4','#EA4335','#F29900','#188038','#9334E6'];
+  var R=[
+    ['m>1段','可验证的进展',['第2节的m扫描：','m>1时team > best'],'best-of-k'],
+    ['会话之间','进展速率有差异',['检查点上各会话','分数方差 > 地板'],'固定切K份'],
+    ['fork保留状态','无重启成本',['fork后首个检查点','分数 ≥ parent'],'不fork，只并预算'],
+    ['探测信号预测类别','好于单agent基线',['held-out选对率','对Kim的54%'],'固定最优配置'],
+    ['探测加路由成本','小于oracle余量',['regret第三列','< 第一列'],'不探测，固定最优']
+  ];
+  var cw=(720-16)/5,top=8;
+  R.forEach(function(r,i){var x=8+i*cw+4,w=cw-8,g=el('g',{'class':'anim-fade',style:'--d:'+(i*120)+'ms'},s);
+    box(g,x,top,w,58,alpha(PAL[i],.12),PAL[i]);T(g,x+10,top+22,(i+1)+'  '+r[0],'qt');T(g,x+10,top+42,r[1],'qt');
+    box(g,x,top+66,w,70,css('--paper-2'),css('--rule'));T(g,x+10,top+82,'检验','fx-tick');r[2].forEach(function(t,k){T(g,x+10,top+102+k*18,t,'q');});
+    arrow(g,x+w/2,top+136,x+w/2,top+160,alpha(css('--ch-s2'),.7));T(g,x+w/2+6,top+152,'不成立','fx-tick');
+    box(g,x,top+162,w,56,alpha(css('--ch-s2'),.07),alpha(css('--ch-s2'),.5));T(g,x+10,top+186,'退化为','fx-tick');T(g,x+10,top+206,r[3],'q');
+    if(i<4)arrow(g,x+w,top+29,x+w+8,top+29,PAL[i]);
+  });
+  T(s,8,top+250,'全部成立时上界由第2节的m曲线给出；任何一条不成立，下界仍是最好的固定方案减一次探测成本。','q');
+  T(s,8,top+272,'每条检验都是第1到第3节已经要跑的实验，不额外加运行。','q');
+})();
+(function(){var links=document.querySelectorAll('.ar-toc a');if(!links.length||!('IntersectionObserver' in window))return;var secs=[].map.call(links,function(a){return document.querySelector(a.getAttribute('href'));});
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){var i=secs.indexOf(e.target);links.forEach(function(a,k){a.classList.toggle('active',k===i);});}});},{rootMargin:'-20% 0px -70% 0px'});secs.forEach(function(s){if(s)io.observe(s);});})();
+})();
+</script>
