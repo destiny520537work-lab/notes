@@ -182,7 +182,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <figure class="viz" id="f-lit">
     <div class="vh"><div><h4>相对单agent的增减，按类排</h4><p class="sub">实心是拉平了预算的，空心是没拉平的。两种都有赢有输，决定方向的是横轴。</p></div></div>
     <svg viewBox="0 0 560 330" aria-label="九篇研究的结果按类排"></svg>
-    <figcaption>每个点一个结果，纵轴是相对单agent的百分比，超过+100的按对数压缩。LATTE没有和单agent比，它的+10是对领队分配，画成方块。Park按agent数对齐，token没对齐，所以画成空心。2606.05670（协议对齐后单74.12%对最好的MAS 75.56%）、MASLab、Harness-Bench、MAS-Orchestra没有单一数字，列在下表。</figcaption>
+    <figcaption>每个点一个结果，纵轴是相对单agent的百分比，超过+100的按对数压缩。LATTE没有和单agent比，它的+10是对领队分配，画成方块。Park按每个agent的资源对齐，结果同时按墙钟和总输出token报，但没有拉到和单agent同一预算，所以画成空心。2606.05670（协议对齐后单74.12%对最好的MAS 75.56%）、MASLab、Harness-Bench、MAS-Orchestra没有单一数字，列在下表。</figcaption>
   </figure>
   <div class="notes">
     <div class="tablewrap"><table>
@@ -191,7 +191,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
         <tr><td>Kim等，2512.08296</td><td>5架构×6benchmark×3家模型，260配置</td><td>拉平，4800推理token</td><td>金融+80.8，顺序规划−70，单agent过45%就亏</td></tr>
         <tr><td>Tran、Kiela，2604.02460</td><td>多跳问答，3家模型</td><td>拉平思考token</td><td>单agent打平或胜出，附数据处理不等式</td></tr>
         <tr><td>2606.05670</td><td>协议对齐后单对多</td><td>对齐协议</td><td>74.12对75.56，差距在区间里</td></tr>
-        <tr><td>Park等，2609.21032</td><td>team@N对best@N</td><td>对齐agent数，token未对齐</td><td>ARC-AGI-3高3倍，Terminal-Bench低1.7个点</td></tr>
+        <tr><td>Park等，2609.21032</td><td>team@N对best@N</td><td>每agent资源相同，同时按总输出token报</td><td>ARC-AGI-3高3倍，Terminal-Bench低1.7个点</td></tr>
         <tr><td>LATTE，2605.06320</td><td>5结构×2模型×3任务</td><td>不拉平</td><td>两个轴都赢，没和单agent比</td></tr>
         <tr><td>Nechepurenko、Shuvalov，2605.03310</td><td>5种协调配置，预测市场</td><td>每次调用封顶，总量放开</td><td>两种配置在Pareto前沿上<span class="tag">待核实</span></td></tr>
         <tr><td>MASLab，2505.16988</td><td>20多个方法×10多个benchmark×8个backbone</td><td>统一输入和协议</td><td>没有方法在所有领域称霸</td></tr>
