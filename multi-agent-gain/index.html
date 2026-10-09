@@ -141,29 +141,36 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
 <header class="ar-head">
   <div class="ar-eyebrow">pingce · 5.8 · 2026-10-09 · v3</div>
   <h1>多agent的收益从哪来</h1>
-  <p class="ar-standfirst">三十篇论文的原始数字，按两件事重排：实验怎么控算力，agent之间传什么。控法一换结论就翻；传的东西决定收益来自哪、什么时候没有。玩具模型只留末尾一张。</p>
+  <p class="ar-standfirst">三十篇论文的原始数字，按三件事重排：拿什么测的（Claude Code和Codex本身、前沿模型自建harness、小模型），实验怎么控算力，agent之间传什么。控法一换结论就翻；传的东西决定收益来自哪；模型一强收益就缩。玩具模型只留末尾一张。</p>
 </header>
 
 <main class="ar-main">
 
-<figure class="viz hero" id="f-sweep">
-  <div class="vh"><div><h4>总思考token拉平：预算从100扫到10000，单agent对最好的多agent</h4><p class="sub">Tran和Kiela，2604.02460，表1。4个模型×2个多跳问答集，5种多agent架构里取最高的那个。</p></div></div>
-  <svg viewBox="0 0 720 300" aria-label="四个模型在六档预算下单agent和最好多agent的准确率"></svg>
-  <div class="legend"><span class="li"><i class="sw" style="background:var(--ink)"></i>单agent，一次调用</span><span class="li"><i class="sw" style="background:var(--ch-s1)"></i>最好的多agent</span><span class="li">实线FRAMES，虚线MuSiQue</span></div>
-  <div class="fx-row"></div>
-  <figcaption>横轴是总思考token预算，对数刻度，多agent的2到4个角色均分这个预算。两个开源模型上，预算过了100以后单agent六档全部领先或持平，这是它摘要里那句话。Gemini 2.5 Pro在MuSiQue上反过来，辩论六档全赢，高3到5个点，论文附录G解释了原因：Gemini的thinkingBudget参数有假象，单agent实际可见的思考封顶在350个token左右，预算根本没花出去。所以这张图真正干净的只有左边两格。</figcaption>
-</figure>
+  <figure class="viz hero" id="f-delm">
+    <div class="vh"><div><h4>同一个Claude Code或Codex，同一个模型，只换协调方式<span class="tag">被测：Claude Code、Codex</span></h4><p class="sub">DeLM，2606.10662 v3，表1和表2。基线是Codex v0.153.4和Claude Code v2.1.280，模型GPT-6-Astra和Opus 5.5。Terminal-Bench 4.0和DeepSWE各10道长任务，3次均值。</p></div></div>
+    <svg viewBox="0 0 720 300" aria-label="四个设置下五种协调方式的准确率和单任务成本"></svg>
+    <div class="legend"><span class="li"><i class="dt" style="background:var(--ink)"></i>单harness</span><span class="li"><i class="dt" style="background:var(--ch-ref)"></i>加原生subagent</span><span class="li"><i class="dt" style="background:var(--ch-s3)"></i>AOrchestra中心编排</span><span class="li"><i class="dt" style="background:var(--ch-s1)"></i>DeLM两人</span><span class="li"><i class="dt" style="background:var(--ch-s2)"></i>DeLM四人</span></div>
+    <figcaption>每个点下面是单任务成本。虚线是单harness的水平。四格里原生subagent和中心编排都没赢过单harness，DeLM两人每格都赢，四人在两格上比两人还低3到8个点。论文那句「委派是在加活，不是在分活」说的就是前两列。2.49倍加速和+17.5个点来自不同的格，前者是TB4上Opus的延迟，后者是DeepSWE上Opus四人对AOrchestra。成本没拉平，四人的单任务成本是单harness的1.5到2.6倍。</figcaption>
+  </figure>
 
 <ol class="standfirst-list">
   <li><span class="n">01</span><span><b>控算力有三种，结论随控法翻。</b>总token拉平，单agent赢；每个agent额度相同，团队顶得上4到7倍的独立agent；把团队总量压到和单agent一样，团队又输。同一篇论文里都有。</span></li>
   <li><span class="n">02</span><span><b>切分型赚在压掉噪声上下文，共享型赚在验证过的进展。</b>前者弱模型赚强模型亏，18格受控实验测出来的；后者要有中途验证器，没有就传噪声。</span></li>
   <li><span class="n">03</span><span><b>人多不灵的原因量出来了。</b>30个辩论agent的答案多样性和1个一样；两个agent协作比一个agent做两件事低20个点；团队用不上自己最强的成员。</span></li>
-  <li><span class="n">04</span><span><b>报出来的收益里有一截是钱和噪声。</b>harness方差是模型方差的7.8倍；同一配置换个马甲，配对差就有12到15个点，十条已发表的收益里七条在这条线之下。</span></li>
+  <li><span class="n">04</span><span><b>小模型上的收益到强模型上会消失。</b>MAS-Orchestra子agent换强的，五轴里四轴增益归零；TAMU 27B六个指标只赢三个；TeamBench上Opus 4.7组队只高2.2，Sonnet 4.6高20。路由器那一支全在小模型上训，换Opus能不能复现没人测过。</span></li>
+  <li><span class="n">05</span><span><b>报出来的收益里有一截是钱和噪声。</b>harness方差是模型方差的7.8倍；同一配置换个马甲，配对差就有12到15个点，十条已发表的收益里七条在这条线之下。</span></li>
 </ol>
 
 <section id="s1">
   <h2><span class="sn">1</span>控算力有三种，这个领域把它们混着引</h2>
   <div class="notes">
+  <p>先看每篇拿什么测的。直接把Claude Code和Codex当被测对象的只有三篇，其余大部分是作者自己写agent循环、通过API调模型，和产品harness不是一回事；路由器那一支基本全是小模型。</p>
+  <div class="tablewrap"><table>
+    <tr><th>档</th><th>谁</th><th>harness</th><th>模型</th></tr>
+    <tr><td><b>Claude Code、Codex本身</b></td><td>DeLM 2606.10662；Liu 2609.15309；Harness-Bench 2605.27922</td><td>Codex、Claude Code、Kimi Code、Gemini CLI、6个开源harness</td><td>Opus 5.5、Opus 4.8、GPT-6-Astra、GPT-5.5、GPT-5.4、Opus 4.6</td></tr>
+    <tr><td><b>前沿模型，自建harness</b></td><td>Park；2605.23950；TeamBench；CooperBench（OpenHands）；Zou组 2602.01011；Salesforce；Tran和Kiela</td><td>作者自己写的循环，通过API调模型</td><td>Sonnet 4.6、Opus 4.6、GPT-5.6、GPT-5.4、GPT-5、Opus 4.5、Gemini 2.5 Pro</td></tr>
+    <tr><td><b>小模型</b></td><td>MaAS、MasRouter、MACA、Symphony、MAS-Orchestra；Ringelmann；TAMU；Silo-Bench；MASLab</td><td>自建</td><td>gpt-4o-mini、Llama-8B、Qwen2.5-7B、GPT-OSS-120B、DeepSeek</td></tr>
+  </table></div>
   <p>「拉平预算后多agent还行不行」这个问题，文献里至少有三种答法，而且经常被放在一句话里互相引用。先把它们分开。</p>
   <div class="tablewrap"><table>
     <tr><th>控法</th><th>意思</th><th>谁</th><th>结论</th></tr>
@@ -172,7 +179,16 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
     <tr><td><b>丙</b> 不拉平，报成本</td><td>效果和token或美元一起报，画成本对效果</td><td>哥廷根，2605.01566（Pareto前沿）；DeLM 2606.10662；LATTE；Salesforce 2606.13003；MAS-Orchestra；Harness-Bench</td><td>看基线。基线是self-consistency时多agent赢1.3到2.7个点，基线是单次CoT时看任务</td></tr>
     <tr><td><b>丁</b> 只对齐协议</td><td>同输入、同判分、同工具，token不管</td><td>Fu 2606.05670；MASLab 2505.16988</td><td>单agent 74.12，六个MAS只有一个高1.44，在单次运行噪声内</td></tr>
   </table></div>
-  <p>上面那张图是甲里最干净的一个。乙那一类看下一节Park，丙和丁看第4节。<b>甲和丙的分歧点在基线</b>：Tran和Kiela的单agent是一次调用，哥廷根的基线是self-consistency。换一个基线，等算力下的结论就翻。哥廷根在MMLU-Pro上的数：CoT一次64.3，self-consistency十条68.7，辩论4人2轮70.0，mixture-of-agents 5模型4层71.4，横轴是估算的运行时。按难度拆，容易题只涨2.2个点，难题从8.4涨到17.4。</p>
+  </div>
+<figure class="viz" id="f-sweep">
+  <div class="vh"><div><h4>总思考token拉平：预算从100扫到10000，单agent对最好的多agent<span class="tag">前沿加开源，自建harness</span></h4><p class="sub">Tran和Kiela，2604.02460，表1。4个模型×2个多跳问答集，5种多agent架构里取最高的那个。</p></div></div>
+  <svg viewBox="0 0 720 300" aria-label="四个模型在六档预算下单agent和最好多agent的准确率"></svg>
+  <div class="legend"><span class="li"><i class="sw" style="background:var(--ink)"></i>单agent，一次调用</span><span class="li"><i class="sw" style="background:var(--ch-s1)"></i>最好的多agent</span><span class="li">实线FRAMES，虚线MuSiQue</span></div>
+  <div class="fx-row"></div>
+  <figcaption>横轴是总思考token预算，对数刻度，多agent的2到4个角色均分这个预算。两个开源模型上，预算过了100以后单agent六档全部领先或持平，这是它摘要里那句话。Gemini 2.5 Pro在MuSiQue上反过来，辩论六档全赢，高3到5个点，论文附录G解释了原因：Gemini的thinkingBudget参数有假象，单agent实际可见的思考封顶在350个token左右，预算根本没花出去。所以这张图真正干净的只有左边两格。</figcaption>
+</figure>
+  <div class="notes">
+  <p>这张是甲里最干净的一个。乙那一类看下一节Park，丙和丁看第4节。<b>甲和丙的分歧点在基线</b>：Tran和Kiela的单agent是一次调用，哥廷根的基线是self-consistency。换一个基线，等算力下的结论就翻。哥廷根在MMLU-Pro上的数：CoT一次64.3，self-consistency十条68.7，辩论4人2轮70.0，mixture-of-agents 5模型4层71.4，横轴是估算的运行时。按难度拆，容易题只涨2.2个点，难题从8.4涨到17.4。</p>
   <p class="key">我们的评测在丙，主图是成本对完成率。论文里要把这一点讲出来，附一张单agent best-of-k的表堵住甲的问题。</p>
   </div>
 </section>
@@ -183,7 +199,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p>切分型是把任务拆开、各做一块、文字汇总。Kim那篇用260个配置测了它的四种拓扑，预算按迭代数匹配。六个benchmark的方向各不一样：</p>
   </div>
   <figure class="viz" id="f-kim">
-    <div class="vh"><div><h4>Kim等260个配置：四种多agent拓扑相对单agent的变化</h4><p class="sub">2512.08296 v3，图2和正文。只画正文给了数的格，SWE-bench和Terminal-Bench各只有20题。</p></div></div>
+    <div class="vh"><div><h4>Kim等260个配置：四种多agent拓扑相对单agent的变化<span class="tag">9个模型，自建harness</span></h4><p class="sub">2512.08296 v3，图2和正文。只画正文给了数的格，SWE-bench和Terminal-Bench各只有20题。</p></div></div>
     <svg viewBox="0 0 720 330" aria-label="六个benchmark上四种多agent拓扑相对单agent的百分比变化"></svg>
     <div class="legend"><span class="li"><i class="dt" style="background:var(--ch-ref)"></i>独立</span><span class="li"><i class="dt" style="background:var(--ch-s4)"></i>去中心化</span><span class="li"><i class="dt" style="background:var(--ch-s1)"></i>中心化</span><span class="li"><i class="dt" style="background:var(--ch-s3)"></i>混合</span></div>
     <div class="fx-row"></div>
@@ -193,7 +209,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p>Kim给了方向，没给机制。机制是德州农工那篇（2607.16133）用一组三臂对照拆出来的：单agent一份上下文；<b>按多agent的方式拆，但累积上下文全可见</b>；按多agent的方式拆，每个worker只拿压缩过的转述。中间那一臂是关键，它把「拆」和「压」分开了。</p>
   </div>
   <figure class="viz" id="f-tamu">
-    <div class="vh"><div><h4>拆开但不压缩，对比拆开又压缩：多agent减去同样拆法的单agent</h4><p class="sub">2607.16133，表2。五个agentic benchmark，三个模型档，总步数拉平。按转述复杂度δ排。</p></div></div>
+    <div class="vh"><div><h4>拆开但不压缩，对比拆开又压缩：多agent减去同样拆法的单agent<span class="tag">小模型：7B、4o-mini、27B</span></h4><p class="sub">2607.16133，表2。五个agentic benchmark，三个模型档，总步数拉平。按转述复杂度δ排。</p></div></div>
     <svg viewBox="0 0 720 250" aria-label="六个任务三个模型档上多agent相对同拆法单agent的增益"></svg>
     <figcaption>横着看是同一个任务换模型：ALFWorld上7B赚0.194，27B只剩0.023；TravelPlanner硬约束上4o-mini赚0.161，27B亏0.233。它的定理把增益写成两项，上游上下文被压掉的噪声，减去转述丢掉的信息乘以一个随模型能力上升的系数β。弱模型怕噪声，压缩是净赚；强模型自己能处理噪声，压缩只剩损失。对纯单agent，27B在六个指标里只赢三个。</figcaption>
   </figure>
@@ -208,7 +224,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p>Park那篇（2609.21032）的agent一模一样，没有角色，没有协调者，不拆任务。每个人各有草稿目录，共用一个只追加的日志当异步广播，一张记录「方法、结果、复现步骤、反证」的榜，改共享产物用文件锁。规则是明显更好才采纳，采纳后保留一个自己的变体。对照是best@k：k个不说话的agent里最好的那个，从64次单跑里无放回地精确算出来。</p>
   </div>
   <figure class="viz" id="f-park">
-    <div class="vh"><div><h4>ARC-AGI-3：会说话的k个agent，对不说话的k个和更多个</h4><p class="sub">Park等，2609.21032，表2。25局游戏，Claude Sonnet 4.6，纵轴是到达离通关还剩L关的试验比例。</p></div></div>
+    <div class="vh"><div><h4>ARC-AGI-3：会说话的k个agent，对不说话的k个和更多个<span class="tag">前沿：Sonnet 4.6，自建harness</span></h4><p class="sub">Park等，2609.21032，表2。25局游戏，Claude Sonnet 4.6，纵轴是到达离通关还剩L关的试验比例。</p></div></div>
     <svg viewBox="0 0 720 300" aria-label="team@k与best@k在各剩余关卡数上的到达率"></svg>
     <div class="legend"><span class="li"><i class="sw" style="background:var(--ch-s1)"></i>team@3</span><span class="li"><i class="sw" style="background:var(--ch-s2)"></i>team@5</span><span class="li"><i class="sw" style="background:var(--ch-ref)"></i>best@3、best@5</span><span class="li"><i class="sw" style="background:var(--ink);opacity:.45"></i>best@13、best@33（虚线）</span></div>
     <div class="fx-row"></div>
@@ -216,14 +232,8 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   </figure>
   <div class="notes">
   <p>机制一句话：独立采样要一个人把m段改进全走完，团队每一段可以用不同人的突破，<span class="num">T_team = Σ_j min_i X_ij ≤ min_i Σ_j X_ij = T_best</span>。前提是每一段的进展能被验证、能排序。Terminal-Bench 2.0上验证器跑完才给反馈，中间进展排不了序，team@2 60.67%低于pass@2 62.36%，论文自己写的反例。</p>
-  <p>DeLM（2606.10662，Stanford）把同一思路放到真实编码任务上，没有任务图：共享上下文加任务队列，发现什么立刻公布，压缩成带证据的gist，异步认领。它和Park的差别在对照组：同一个模型、同一个harness，只换协调方式。</p>
+  <p>DeLM（2606.10662，Stanford）把同一思路放到真实编码任务上，就是首图那张：没有任务图，共享上下文加任务队列，发现什么立刻公布，压缩成带证据的gist，异步认领。它和Park的差别在对照组：同一个Claude Code或Codex、同一个模型，只换协调方式，原生subagent和中心编排四格没赢过单harness，两人共享上下文每格都赢。</p>
   </div>
-  <figure class="viz" id="f-delm">
-    <div class="vh"><div><h4>同模型同harness，只换协调：共享上下文对原生subagent对中心编排</h4><p class="sub">DeLM，2606.10662 v3，表1和表2。Terminal-Bench 4.0和DeepSWE各10道长任务，3次均值。</p></div></div>
-    <svg viewBox="0 0 720 300" aria-label="四个设置下五种协调方式的准确率和单任务成本"></svg>
-    <div class="legend"><span class="li"><i class="dt" style="background:var(--ink)"></i>单harness</span><span class="li"><i class="dt" style="background:var(--ch-ref)"></i>加原生subagent</span><span class="li"><i class="dt" style="background:var(--ch-s3)"></i>AOrchestra中心编排</span><span class="li"><i class="dt" style="background:var(--ch-s1)"></i>DeLM两人</span><span class="li"><i class="dt" style="background:var(--ch-s2)"></i>DeLM四人</span></div>
-    <figcaption>每个点下面是单任务成本。四格里原生subagent和中心编排都没赢过单harness，DeLM两人每格都赢，四人在两格上比两人还低3到8个点。论文那句「委派是在加活，不是在分活」说的就是前两列。2.49倍加速和+17.5个点来自不同的格，前者是TB4上Opus的延迟，后者是DeepSWE上Opus四人对AOrchestra。成本没拉平，四人的单任务成本是单harness的1.5到2.6倍。</figcaption>
-  </figure>
 </section>
 
 <section id="s4">
@@ -232,13 +242,13 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p>独立型是N个agent各干各的不交流，最后挑最好的或投票。best@k、pass@k、self-consistency、CoT-SC都是它。它是Park要打败的对手，也是第1节甲和丙分歧的根源。两组数说明为什么它该是基线。</p>
   </div>
   <figure class="viz" id="f-indep">
-    <div class="vh"><div><h4>协议对齐后，六个多agent框架对一个单agent锚点</h4><p class="sub">Fu等，2606.05670，表1。GPT-4.1，十个benchmark，pass@1单次运行。</p></div></div>
+    <div class="vh"><div><h4>协议对齐后，六个多agent框架对一个单agent锚点<span class="tag">GPT-4.1，自建harness</span></h4><p class="sub">Fu等，2606.05670，表1。GPT-4.1，十个benchmark，pass@1单次运行。</p></div></div>
     <svg viewBox="0 0 720 330" aria-label="十个benchmark上单agent与六个多agent框架的准确率"></svg>
     <div class="legend"><span class="li"><i class="dt" style="background:var(--ink)"></i>单agent</span><span class="li"><i class="dt" style="background:var(--ch-s1)"></i>EvoAgent</span><span class="li"><i class="dt" style="background:var(--ch-ref)"></i>其余五家</span></div>
     <figcaption>平均：单agent 74.12，EvoAgent 75.56，其余五家66.37到71.56。AIME上单agent 46.67，最好的多agent 36.67；BBH上EvoAgent 94.00对单agent 78.25，HumanEval上辩论93.89对84.73。逐项看，多agent有大赢的格，平均下来被别的格抵掉。它只跑单次，而2605.01566和2502.08788都测出把单agent换成self-consistency，结论会翻。</figcaption>
   </figure>
   <figure class="viz" id="f-cost">
-    <div class="vh"><div><h4>自动生成的多agent对五票CoT-SC：成本对准确率</h4><p class="sub">Salesforce，2606.13003，表4。GPT-5，SWE-Bench Lite和一个588题的金融多跳集SMFR。横轴对数。</p></div></div>
+    <div class="vh"><div><h4>自动生成的多agent对五票CoT-SC：成本对准确率<span class="tag">GPT-5，自建harness</span></h4><p class="sub">Salesforce，2606.13003，表4。GPT-5，SWE-Bench Lite和一个588题的金融多跳集SMFR。横轴对数。</p></div></div>
     <svg viewBox="0 0 720 280" aria-label="五个自动设计的多agent系统与CoT-SC在成本和准确率上的位置"></svg>
     <figcaption>SWE-Bench Lite上CoT-SC 57.09，五家自动设计的系统全在它下面，MAS-Zero花3.5倍的钱拿45.52。SMFR上专家手写的多agent拿96.51，成本和CoT-SC差不多；自动生成的最高61.28。所以它的标题说「假象」，说的是自动设计这条路，手工设计的还在。它也有自动系统赢的格：GPQA上Gemini 2.5 Pro配DyLAN 87.35对83.13，还更便宜。</figcaption>
   </figure>
@@ -253,7 +263,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p><b>第一，同质团队的辩论不增加多样性。</b>Jožef Stefan那篇（2606.02646）给了一条标度律：有效人数比<span class="num">R(N)=1/(1+c(N−1)N^−β)</span>，β=0是硬天花板，0到1之间是次线性。44个格拟合，中位R²0.999。</p>
   </div>
   <figure class="viz" id="f-ring">
-    <div class="vh"><div><h4>N个agent里有几个是有效的：辩论、自我纠正、随机噪声安慰剂</h4><p class="sub">2606.02646，表1的c和β代回公式。Qwen2.5-7B，N从1到30。</p></div></div>
+    <div class="vh"><div><h4>N个agent里有几个是有效的：辩论、自我纠正、随机噪声安慰剂<span class="tag">小模型：Qwen2.5-7B</span></h4><p class="sub">2606.02646，表1的c和β代回公式。Qwen2.5-7B，N从1到30。</p></div></div>
     <svg viewBox="0 0 720 280" aria-label="四种条件下有效agent数随团队规模的变化"></svg>
     <div class="legend"><span class="li"><i class="sw" style="background:var(--ch-s2)"></i>辩论，MMLU-Hard（c=.85，β=0）</span><span class="li"><i class="sw" style="background:var(--ch-s3)"></i>辩论，GSM-Hard（c=.57，β=.014）</span><span class="li"><i class="sw" style="background:var(--ch-s1)"></i>自我纠正，GSM-Hard（c=.34，β=.252）</span><span class="li"><i class="sw" style="background:var(--ch-ref)"></i>随机噪声安慰剂（c=.33，β=.27）</span></div>
     <div class="fx-row"></div>
@@ -263,7 +273,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p><b>第二，协作本身有成本，而且比想的大。</b>CooperBench（2601.13295，Stanford）652对任务，每对是同一个仓库上的两个feature。Solo一个agent做两个，Coop两个agent各做一个、能互发消息，每人100步，所以Coop的总动作是Solo的两倍。</p>
   </div>
   <figure class="viz" id="f-coop">
-    <div class="vh"><div><h4>左：两个agent协作对一个agent做两件事。右：团队对自己最强的成员</h4><p class="sub">左CooperBench表5，成功率%。右Zou组2602.01011表2，四个前沿模型组队、四轮讨论，各100题。</p></div></div>
+    <div class="vh"><div><h4>左：两个agent协作对一个agent做两件事。右：团队对自己最强的成员<span class="tag">左OpenHands加GPT-5、Sonnet 4.5；右Opus 4.5、GPT-5、o3</span></h4><p class="sub">左CooperBench表5，成功率%。右Zou组2602.01011表2，四个前沿模型组队、四轮讨论，各100题。</p></div></div>
     <div class="mini"><div><svg viewBox="0 0 330 250" id="coop-a"></svg></div><div><svg viewBox="0 0 330 250" id="coop-b"></svg></div></div>
     <div class="legend"><span class="li"><i class="dt" style="background:var(--ink)"></i>Solo / 最强成员</span><span class="li"><i class="dt" style="background:var(--ch-s2)"></i>Coop / 团队，不告诉谁是专家</span><span class="li"><i class="dt" style="background:var(--ch-s1)"></i>团队，告诉谁是专家</span><span class="li"><i class="dt" style="background:var(--ch-ref)"></i>逐题oracle</span></div>
     <figcaption>左：GPT-5从48.3掉到28.1，Sonnet 4.5从47.1掉到25.8，花两倍动作还输。失败症状里工作重叠33.2%、架构分歧29.7%。右：不告诉谁是专家时，团队比最强成员低0.5到10.5个点，比逐题oracle低6.3%到41.1%，那个41.1%是HLE上对oracle的，对最强成员只差1个点。告诉了谁是专家，团队在五项里四项反超最强成员。论文的诊断是团队在做「整合式妥协」，把专家和非专家的答案平均。</figcaption>
@@ -279,7 +289,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p>上面那些比较，大部分没拉平算力。两组数说明不拉平会差多少。</p>
   </div>
   <figure class="viz" id="f-harness">
-    <div class="vh"><div><h4>左：3个模型×3个harness，SWE-bench Verified 100题。右：Harness-Bench六个harness的分数对token</h4><p class="sub">左2605.23950表2和表9。右2605.27922表2，106任务×8个模型后端的平均。</p></div></div>
+    <div class="vh"><div><h4>左：3个模型×3个harness，SWE-bench Verified 100题。右：Harness-Bench六个harness的分数对token<span class="tag">左GPT-5.4、Kimi、GLM自建；右Codex加6个开源harness</span></h4><p class="sub">左2605.23950表2和表9。右2605.27922表2，106任务×8个模型后端的平均。</p></div></div>
     <div class="mini"><div><svg viewBox="0 0 330 250" id="har-a"></svg></div><div><svg viewBox="0 0 330 250" id="har-b"></svg></div></div>
     <figcaption>左：换harness的方差均值18.48，换模型的2.37，7.8倍；9组模型对比里6组排名跨harness翻转；GLM-5.1光换harness就差13个点。token也没拉平，GPT-5.4在三个harness上分别烧了1890万、970万、1000万。右：最高76.2对最低52.4，差23.8；token从6.9万到17.5万，相差2.5倍，全文没有讨论。两篇都没做任务级的翻转分析。第一篇不是方差分析，是方差均值，η²只是它提议的报告格式。</figcaption>
   </figure>
@@ -287,7 +297,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p>噪声那一头，UT Austin那篇（2606.20695）做了件很简单的事：拿两个功能完全等价、只是形式不同的协调配置，等价性用代码审查和SHA-256校验过，在同一模型同一benchmark上各跑100题，看配对差。差多少，就是这个benchmark上「什么都没变」能变出多少。</p>
   </div>
   <figure class="viz" id="f-floor">
-    <div class="vh"><div><h4>十条已发表的协调收益，对一条配对噪声地板</h4><p class="sub">2606.20695，表4。地板来自Claude Haiku 4.5在τ²-bench零售上两个等价配置的配对差，两个seed各100题。</p></div></div>
+    <div class="vh"><div><h4>十条已发表的协调收益，对一条配对噪声地板<span class="tag">Haiku 4.5，自建harness</span></h4><p class="sub">2606.20695，表4。地板来自Claude Haiku 4.5在τ²-bench零售上两个等价配置的配对差，两个seed各100题。</p></div></div>
     <svg viewBox="0 0 720 320" aria-label="十条报告的收益与12到15个点的噪声带"></svg>
     <div class="fx-row"></div>
     <figcaption>干净对照的配对差seed 1是+10个点，seed 2是0，合并Wilson上界12；最大的那个对照seed 1到+18、seed 2是−3，合并上界15。论文自己把+18标成没复现。七条在12以下，一条在带内，两条在上面。它还给了检出力表：要在配对设计里检出5个点的差要1003题，10个点249题，20个点61题。LATTE三个任务各10次、DeLM每个benchmark10题，都在这条线下面很远。地板是局部的，Haiku在airline上约0，Sonnet在retail上3.3到20。</figcaption>
@@ -328,12 +338,12 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   </table></div>
   </div>
   <figure class="viz" id="f-brain">
-    <div class="vh"><div><h4>左：训出来的7B编排器对现成的大模型当编排器，AIME24。右：1亿token给一个会话还是切成K份</h4><p class="sub">左MAS-Orchestra表3和附录D.2，横轴每题美元，对数。右Liu等2609.15309图8，Polyomino Packing，Kimi Code，joint-Elo。</p></div></div>
+    <div class="vh"><div><h4>左：训出来的7B编排器对现成的大模型当编排器，AIME24。右：1亿token给一个会话还是切成K份<span class="tag">左7B编排器加GPT-OSS-120B；右Claude Code、Codex、Kimi Code</span></h4><p class="sub">左MAS-Orchestra表3和附录D.2，横轴每题美元，对数。右Liu等2609.15309图8，Polyomino Packing，Kimi Code，joint-Elo。</p></div></div>
     <div class="mini"><div><svg viewBox="0 0 330 250" id="brain-a"></svg></div><div><svg viewBox="0 0 330 250" id="brain-b"></svg></div></div>
     <figcaption>左：训过的7B编排器66.25，每题0.01美元；GPT-5当编排器55.00，Sonnet 4.5当编排器45.56；AFlow 62.50要1.46美元。子agent全是同一池。它在MASBench上的发现更有用：子agent弱时多agent在深度轴以外全赢，子agent换成强的，深度、长程、广度、并行四轴的增益全消失，只剩鲁棒性。右：拐点定义是边际Elo低于独立采样的参考线，预测切3份，实测3份最高。切法是事先定的，中途不调。</figcaption>
   </figure>
   <div class="notes">
-  <p>三个坑。一，八家选的全是切分型的图，没有一家把Park那种共享型放进候选。二，训练集几乎全是短任务，MasRouter一道agentic任务都没有，长程上成不成立没人验过。三，Kim那个回归的输入里有单agent基线，等于要先跑一遍单agent才能决定要不要多agent；COVER是唯一量了oracle差距的，而且没过自己的线。路由器自身的开销和为了训它做的探测成本，没有一家扣出来报净值。</p>
+  <p>四个坑。一，八家选的全是切分型的图，没有一家把Park那种共享型放进候选。二，训练集几乎全是短任务，MasRouter一道agentic任务都没有，长程上成不成立没人验过。三，Kim那个回归的输入里有单agent基线，等于要先跑一遍单agent才能决定要不要多agent；COVER是唯一量了oracle差距的，而且没过自己的线。路由器自身的开销和为了训它做的探测成本，没有一家扣出来报净值。四，八家全在小模型上训和测，MaAS是gpt-4o-mini，MACA是Llama-8B，MAS-Orchestra的编排器是7B，而上面那几篇都测出收益随模型变强而消失，这些路由器换成Opus能不能复现，没人测过。</p>
   <p class="key">我们的14个case标上并行宽度、可验证性、单agent基线，三个harness的成绩表出来，一个决策树就是这颗brain的第一版。Kim用回归就到87%。候选里把共享型加进去，就是上面那个空位。</p>
   </div>
 </section>
