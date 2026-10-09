@@ -1,0 +1,452 @@
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>多agent的收益从哪来</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Serif+SC:wght@400;500&display=swap">
+<style>
+/* 照 wenhaochai.com/blogs/predictable-swarm-scaling.html 的 token 和排版抄的（他 2026-10-07 的版本：白纸、Google 灰线、oxblood 红）。
+   单一浅色主题，不做明暗、不做多配色。中文衬线配 Noto Serif SC，中文无衬线配 PingFang。 */
+:root{
+  --paper:#FFFFFF;--paper-2:#F8F9FA;
+  --ink:#15141A;--ink-2:#2A2830;--ink-3:#5E5B66;--ink-4:#6A6674;
+  --rule:#DADCE0;--rule-2:#E8EAED;
+  --accent:#7A1A1A;--accent-hover:#5C1212;--accent-soft:rgba(122,26,26,.08);--link-line:rgba(122,26,26,.38);
+  /* 图表色：Google 四色，参考灰，"最好"用红 */
+  --ch-s1:#4285F4;--ch-s2:#EA4335;--ch-s3:#F29900;--ch-s4:#188038;--ch-ref:#8A8791;--ch-best:#EA4335;
+  --ch-grid:var(--rule-2);--ch-axis:var(--rule);
+  --ch-soft-1:rgba(66,133,244,.10);--ch-soft-2:rgba(234,67,53,.12);--ch-soft-4:rgba(24,128,56,.10);--ch-soft-ref:rgba(138,135,145,.18);
+  --font-serif:'Newsreader','Noto Serif SC','Songti SC','Iowan Old Style',Georgia,serif;
+  --font-sans:'Instrument Sans',-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',Arial,sans-serif;
+  --font-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  --font-chart:var(--font-sans);
+  --max:720px;--gutter:clamp(20px,4vw,56px);
+  color-scheme:light;
+}
+html,body{margin:0;padding:0;overflow-x:clip}
+body{font-family:var(--font-sans);background:var(--paper);color:var(--ink);line-height:1.55;font-size:16px;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+.ar-page{max-width:var(--max);margin:0 auto;padding:0 var(--gutter) 96px}
+.ar-crumb{font-family:var(--font-mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin:36px 0 44px;display:flex;gap:10px}
+.ar-eyebrow{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin-bottom:22px}
+.ar-head h1{font-family:var(--font-serif);font-weight:400;font-size:clamp(36px,4.6vw,52px);line-height:1.12;letter-spacing:-.02em;margin:0;text-wrap:balance}
+.ar-standfirst{font-family:var(--font-serif);font-size:clamp(17px,1.5vw,20px);line-height:1.6;color:var(--ink-2);margin:18px 0 0}
+.ar-authors{display:flex;align-items:center;gap:12px;margin:32px 0 0;font-family:var(--font-sans);font-size:15px;color:var(--ink)}
+.ar-main p{font-family:var(--font-serif);font-size:18px;line-height:1.75;color:var(--ink-2);margin:0 0 20px}
+.ar-main ul:not([class]),.ar-main ol:not([class]),.ar-main blockquote{font-family:var(--font-serif);font-size:18px;line-height:1.75;color:var(--ink-2)}
+.ar-main ul:not([class]) li,.ar-main ol:not([class]) li{margin:0 0 8px}
+.ar-main h2{font-family:var(--font-serif);font-weight:500;font-size:clamp(24px,2.4vw,30px);letter-spacing:-.015em;line-height:1.25;margin:46px 0 16px;padding-top:20px;border-top:1px solid var(--rule);text-wrap:balance}
+.ar-main h3{font-family:var(--font-serif);font-weight:500;font-size:21px;letter-spacing:-.01em;margin:32px 0 12px}
+.ar-main a{color:var(--ink);text-decoration:none;border-bottom:1px solid var(--link-line);padding:0 1px;transition:color .15s,border-color .15s}
+.ar-main a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+.ar-main strong{font-weight:600;color:var(--ink)}
+.ar-main code{font-family:var(--font-mono);font-size:.82em;background:var(--paper-2);border:1px solid var(--rule-2);border-radius:3px;padding:1px 5px}
+.ar-main pre{background:var(--paper-2);border:1px solid var(--rule);border-radius:2px;padding:16px 18px;margin:0 0 22px;overflow-x:auto;font-family:var(--font-mono);font-size:13px;line-height:1.65;color:var(--ink-2)}
+.ar-main .key{font-family:var(--font-serif);font-size:18px;line-height:1.6;color:var(--ink);border-left:2px solid var(--accent);padding:2px 0 2px 16px;margin:0 0 20px}
+/* 图：透明底，画布一圈细灰线，标题 sans 17/600，副题 sans 14 灰，图注 sans 14 灰 */
+figure.viz{position:relative;margin:36px 0;padding:0;background:transparent}
+.viz .vh{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.viz h4{font-family:var(--font-chart);font-size:17px;font-weight:600;line-height:1.3;margin:0 0 4px;color:var(--ink)}
+.viz .sub{font-family:var(--font-chart);font-size:14px;line-height:1.45;color:var(--ink-3);margin:0 0 14px}
+.viz canvas{display:block;width:100%;border:1px solid var(--rule-2);border-radius:2px}
+.viz svg{width:100%;height:auto;display:block;overflow:visible;font-family:var(--font-chart)}
+.viz svg text{font-family:var(--font-chart)}
+.viz figcaption{font-family:var(--font-sans);font-size:14px;line-height:1.5;color:var(--ink-3);padding-top:12px}
+.viz .legend{display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;font-family:var(--font-chart);font-size:13px;color:var(--ink-2);margin:10px 0 0}
+.viz .legend .li{display:inline-flex;align-items:center;gap:6px}
+.viz .legend .sw{width:12px;height:3px;border-radius:2px}
+.viz .legend .dt{width:10px;height:10px;border-radius:50%}
+.viz .legend .lk{width:14px;height:0;border-top:3px solid;border-radius:2px}
+.viz table{width:100%;border-collapse:collapse;font-family:var(--font-chart);font-size:13.5px;margin:6px 0 0}
+.viz th,.ar-main table th{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:500;color:var(--ink-3);text-align:left;padding:8px;border-bottom:1px solid var(--ink)}
+.viz td,.ar-main table td{padding:8px;border-bottom:1px solid var(--rule-2);vertical-align:top;font-variant-numeric:tabular-nums}
+.ar-main table{width:100%;border-collapse:collapse;font-family:var(--font-chart);font-size:14px;margin:0 0 22px}
+/* 控件：小号大写 mono，2px 圆角，悬停变红 */
+.fx-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+.fx-btn,.viz .tgl{font-family:var(--font-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-2);background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:5px 10px;cursor:pointer}
+.fx-btn:hover,.viz .tgl:hover{color:var(--accent);border-color:var(--accent)}
+.fx-btn[aria-selected="true"],.fx-btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.fx-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.fx-readouts{display:flex;flex-wrap:wrap;gap:5px 16px;margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.fx-readouts b{font-weight:600;color:var(--ink)}
+.fx-two{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+@media (max-width:640px){.fx-two{grid-template-columns:1fr}}
+.fx-tick{fill:var(--ink-3);font-size:12px;font-family:var(--font-mono),monospace;font-variant-numeric:tabular-nums}
+.fx-axis-title{fill:var(--ink);font-size:13.5px;font-weight:500;font-family:var(--font-sans),sans-serif}
+.lbl{font-family:var(--font-mono);font-size:11.5px;fill:var(--ink-2);font-variant-numeric:tabular-nums}
+.lbl.strong{fill:var(--ink);font-weight:500}
+/* 脚注与来源 */
+.ar-notes ol{list-style:none;padding:0;margin:0}
+.ar-notes li{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid var(--rule-2);font-family:var(--font-serif);font-size:15px;line-height:1.55;color:var(--ink-2)}
+.ar-notes li>b{font-family:var(--font-mono);font-weight:500;font-size:12px;color:var(--accent);padding-top:2px}
+.num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.ar-page{max-width:1180px;display:grid;grid-template-columns:minmax(0,720px);justify-content:center;column-gap:clamp(32px,4vw,56px)}
+.ar-toc{display:none;grid-column:1;position:sticky;top:40px;align-self:start;margin-top:48px}
+@media (min-width:1040px){.ar-page{grid-template-columns:190px minmax(0,720px)}.ar-toc{display:block}}
+.ar-toc ol{list-style:none;padding:0;margin:0;border-left:2px solid var(--rule)}
+.ar-toc a{display:block;padding:5px 0 5px 14px;margin-left:-2px;border-left:2px solid transparent;font-family:var(--font-sans);font-size:13.5px;line-height:1.4;color:var(--ink-4);text-decoration:none}
+.ar-toc a.active{color:var(--ink);border-left-color:var(--ink)}
+.ar-toc .tt{font-family:var(--font-mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-4);margin:0 0 10px}
+.ar-head,.ar-main{grid-column:1}
+@media (min-width:1040px){.ar-head,.ar-main{grid-column:2}}
+.ar-head{margin-top:40px}
+.ar-head h1{font-size:clamp(30px,3.6vw,42px);line-height:1.2}
+.ar-main h2 .sn{font-family:var(--font-mono);font-size:13px;color:var(--accent);margin-right:12px;letter-spacing:.04em}
+.standfirst-list{margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.standfirst-list li{font-family:var(--font-serif);font-size:clamp(17px,1.5vw,19px);line-height:1.6;color:var(--ink-2);display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.standfirst-list li b{font-weight:600;color:var(--ink)}
+.standfirst-list li .n{font-family:var(--font-mono);font-size:12px;color:var(--accent);padding-top:5px}
+.notes ul,.notes ol{margin:0 0 20px;padding-left:1.2em}
+.viz canvas{height:auto}
+.fx-ctrls{display:grid;grid-template-columns:auto 1fr 4ch;gap:9px 12px;align-items:center;margin-top:10px;font-family:var(--font-mono);font-size:13px;color:var(--ink-2)}
+.fx-ctrls label{font-size:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+.fx-ctrls input[type=range]{width:100%;min-width:0;height:2px;margin:0;accent-color:var(--accent);cursor:pointer}
+.fx-ctrls output{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-size:13px}
+.legend .li{display:inline-flex;align-items:center;gap:6px}
+.tablewrap{overflow-x:auto;margin:0 0 22px}
+td.miss{color:var(--ink-4)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px 24px;margin:0 0 28px}
+.cards>div{border-top:1px solid var(--rule);padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.cards .t{font-family:var(--font-serif);font-weight:500;font-size:18px;color:var(--ink)}
+.cards .s{font-family:var(--font-serif);font-size:15.5px;line-height:1.55;color:var(--ink-2)}
+.cards .src{font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:.02em}
+footer.ar-foot{margin-top:56px;padding-top:18px;border-top:1px solid var(--rule);font-family:var(--font-sans);font-size:13px;color:var(--ink-3);line-height:1.8}
+footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);text-decoration:none}
+.viz .anim-bar{transform:scaleY(0);transform-box:fill-box;transform-origin:50% 100%}
+.viz .anim-barx{transform:scaleX(0);transform-box:fill-box;transform-origin:0 50%}
+.viz .anim-fade{opacity:0}
+.viz.in .anim-bar,.viz.in .anim-barx{transform:none;transition:transform .55s cubic-bezier(.2,.7,.2,1) var(--d,0ms)}
+.viz.in .anim-fade{opacity:1;transition:opacity .35s ease var(--d,0ms)}
+.hero{margin:36px 0 28px}
+.mini{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+@media (max-width:640px){.mini{grid-template-columns:1fr}}
+.mini>div{min-width:0}
+.q{font-family:var(--font-chart);font-size:12.5px;fill:var(--ink-2)}
+.qt{font-family:var(--font-chart);font-size:13.5px;font-weight:600;fill:var(--ink)}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--rule);border-radius:2px;padding:1px 6px;color:var(--ink-3);margin-left:6px;vertical-align:2px}
+</style>
+
+<div class="ar-page">
+<nav class="ar-toc" aria-label="目录"><div class="tt">目录</div><ol>
+  <li><a href="#s1">1 三种多agent</a></li>
+  <li><a href="#s2">2 九篇研究放一张图</a></li>
+  <li><a href="#s3">3 开关是验证</a></li>
+  <li><a href="#s4">4 什么时候用哪种</a></li>
+  <li><a href="#s5">5 给评测的四条</a></li>
+</ol></nav>
+
+<header class="ar-head">
+  <div class="ar-eyebrow">pingce · 5.8 · 2026-10-09</div>
+  <h1>多agent的收益从哪来</h1>
+  <p class="ar-standfirst">九篇测「多agent到底比单agent好不好」的研究，结论看着互相打架：拉平预算的有赢有输，不拉平的也有赢有输。把它们按「agent之间在传什么」重新分一遍，九个结果一条规律套住：收益来自分享发现，不来自切分任务。</p>
+</header>
+
+<main class="ar-main">
+
+<figure class="viz hero" id="f-toy">
+  <div class="vh"><div><h4>同一件事，三种干法</h4><p class="sub">切分丢信息，独立不加信息，共享只加不丢。</p></div></div>
+  <canvas height="330" aria-label="三种多agent组织方式找齐线索的过程"></canvas>
+  <div class="fx-ctrls">
+    <label for="toy-n">agent数</label><input type="range" id="toy-n" min="1" max="12" step="1" value="4"><output id="toy-n-out">4</output>
+    <label for="toy-e">汇总丢失</label><input type="range" id="toy-e" min="0" max="40" step="5" value="15"><output id="toy-e-out">15%</output>
+  </div>
+  <div class="mini"><div><svg viewBox="0 0 330 160" id="toy-chart"></svg></div><div><svg viewBox="0 0 330 160" id="toy-scale"></svg></div></div>
+  <div class="legend"><span class="li"><i class="lk" style="border-color:var(--ch-s3)"></i>切分：各找自己那份，再汇总</span><span class="li"><i class="lk" style="border-color:var(--ch-ref)"></i>独立：各找全部，挑最好的</span><span class="li"><i class="lk" style="border-color:var(--ch-s1)"></i>共享：各找全部，找到就写进共享日志</span></div>
+  <div class="fx-row"></div>
+  <figcaption>玩具模型，不是任何论文的复现。一件事由16条线索组成，每个agent每个时刻以1/4的概率找到一条自己还没找到的线索。上图每块是一种干法，一行一个agent，一格一条线索，亮了就是找到了，最下面一行是最后交出去的答案。切分型找完以后要汇总，每条线索在汇总时以滑条设定的概率丢掉。左下图是答案里线索的比例随时间的变化，右下图是三种干法在1到12个agent时，答案里凑够八成线索要多久，300次平均。切分型快但封顶在1减丢失率，共享型又快又全，独立型最慢。</figcaption>
+</figure>
+
+<ol class="standfirst-list">
+  <li><span class="n">01</span><span><b>切分在信息论上是净损失。</b>每次把子结果汇总成文字都丢一点，所以拉平预算后单agent打平或胜出（Tran和Kiela，2604.02460）。它只在单agent自己用不好上下文时才划算。</span></li>
+  <li><span class="n">02</span><span><b>共享只加不丢。</b>一个洞见只需要有人发现一次，拉平了照样赢：ARC-AGI-3上team@5 8.0%对best@5 2.2%（Park等，2609.21032）。</span></li>
+  <li><span class="n">03</span><span><b>开关是验证。</b>切分型，子结果能独立验证就赚，成链就亏；共享型，发现能核对就赚，核不了就在传噪声。预算拉不拉平只改数字大小，不改方向。</span></li>
+</ol>
+
+<section id="s1">
+  <h2><span class="sn">1</span>三种多agent，agent之间传的东西不一样</h2>
+  <div class="notes">
+    <p>Kim那一支测的五种架构（独立、中心化、去中心化、混合，都对着单agent）全是切分：把任务拆开，各做一块，文字汇总。Park那一支测的team@N全是共享：所有人做同一件事，发现写进共享日志。两支各测各的，所以结论看着打架。</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>类</th><th>怎么干</th><th>信息</th><th>代表</th></tr></thead>
+      <tbody>
+        <tr><td>切分</td><td>拆任务，各做一块，文字汇总</td><td>每次汇总丢一点</td><td>Kim的五种架构、Anthropic研究系统、LATTE、Chai的swarm</td></tr>
+        <tr><td>独立</td><td>都做同一件事，不交流，挑最好的</td><td>不丢也不加，靠多样性</td><td>best@N、pass@k、Chai擂台里的pass@m</td></tr>
+        <tr><td>共享</td><td>都做同一件事，发现写进共享日志</td><td>只加不丢</td><td>Park的team@N、Chai自适应swarm的合并</td></tr>
+      </tbody>
+    </table></div>
+    <p>Tran和Kiela的不等式写明了前提：「固定推理token，且上下文被完美利用」。Liu等（2609.15309）测出单agent的token换Elo有拐点，过了拐点边际收益掉到独立采样以下。拐点之后切分丢的信息小于长会话自己丢的，切分才开始赚。</p>
+    <p class="key">切分型的判据不是任务长不长，是单agent的曲线拐没拐。这个能测。</p>
+  </div>
+</section>
+
+<section id="s2">
+  <h2><span class="sn">2</span>九篇研究放一张图</h2>
+  <figure class="viz" id="f-lit">
+    <div class="vh"><div><h4>相对单agent的增减，按类排</h4><p class="sub">实心是拉平了预算的，空心是没拉平的。两种都有赢有输，决定方向的是横轴。</p></div></div>
+    <svg viewBox="0 0 560 330" aria-label="九篇研究的结果按类排"></svg>
+    <figcaption>每个点一个结果，纵轴是相对单agent的百分比，超过+100的按对数压缩。LATTE没有和单agent比，它的+10是对领队分配，画成方块。Park按agent数对齐，token没对齐，所以画成空心。2606.05670（协议对齐后单74.12%对最好的MAS 75.56%）、MASLab、Harness-Bench、MAS-Orchestra没有单一数字，列在下表。</figcaption>
+  </figure>
+  <div class="notes">
+    <div class="tablewrap"><table>
+      <thead><tr><th>研究</th><th>变了什么</th><th>控预算吗</th><th>结论</th></tr></thead>
+      <tbody>
+        <tr><td>Kim等，2512.08296</td><td>5架构×6benchmark×3家模型，260配置</td><td>拉平，4800推理token</td><td>金融+80.8，顺序规划−70，单agent过45%就亏</td></tr>
+        <tr><td>Tran、Kiela，2604.02460</td><td>多跳问答，3家模型</td><td>拉平思考token</td><td>单agent打平或胜出，附数据处理不等式</td></tr>
+        <tr><td>2606.05670</td><td>协议对齐后单对多</td><td>对齐协议</td><td>74.12对75.56，差距在区间里</td></tr>
+        <tr><td>Park等，2609.21032</td><td>team@N对best@N</td><td>对齐agent数，token未对齐</td><td>ARC-AGI-3高3倍，Terminal-Bench低1.7个点</td></tr>
+        <tr><td>LATTE，2605.06320</td><td>5结构×2模型×3任务</td><td>不拉平</td><td>两个轴都赢，没和单agent比</td></tr>
+        <tr><td>Nechepurenko、Shuvalov，2605.03310</td><td>5种协调配置，预测市场</td><td>每次调用封顶，总量放开</td><td>两种配置在Pareto前沿上<span class="tag">待核实</span></td></tr>
+        <tr><td>MASLab，2505.16988</td><td>20多个方法×10多个benchmark×8个backbone</td><td>统一输入和协议</td><td>没有方法在所有领域称霸</td></tr>
+        <tr><td>Harness-Bench，2605.27922</td><td>6个harness×8个后端×106任务</td><td>控外部条件</td><td>差23.8分，但有一致赢家</td></tr>
+        <tr><td>MAS-Orchestra，2601.14652，ICML 2026</td><td>MASBENCH，按Depth、Horizon、Breadth、Parallel、Robustness控制</td><td>摘要没说</td><td>收益取决于任务结构、验证协议、agent能力</td></tr>
+        <tr><td>Zhang等，2609.05933</td><td>质疑「效率方法」那一支的评测</td><td>统一backbone和runtime</td><td>很多收益是setup造成的，随机剪掉一半agent照样达到</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section id="s3">
+  <h2><span class="sn">3</span>开关是验证</h2>
+  <figure class="viz" id="f-switch">
+    <div class="vh"><div><h4>同一篇论文里的一对结果</h4><p class="sub">子结果能不能独立验证，决定同一种干法赚还是亏。</p></div></div>
+    <svg viewBox="0 0 560 250" aria-label="三对结果"></svg>
+    <figcaption>三对，每对来自同一篇、同一种干法。Kim：Finance-Agent子结论能独立核，PlanCraft子步骤成链。Park：ARC-AGI-3的发现能被核对，Terminal-Bench上分享的是没法验证的猜测。Chai：coverage里每步做完就算，best score要沿一条链走。</figcaption>
+  </figure>
+  <div class="notes">
+    <ul>
+      <li><b>切分型</b>：子结果互相独立、各自可验证，人多就快（Chai的coverage，64人快28倍）；子步骤成链，人多没用（best score只快12倍，Kim的PlanCraft掉70%）。</li>
+      <li><b>共享型</b>：发现能核对，一个洞见只需要有人发现一次（ARC-AGI-3）；核不了，共享日志里全是别人的猜测（Terminal-Bench）。</li>
+      <li><b>LATTE赢在哪</b>：它是切分型，但任务图把状态外化了，汇总丢的少。互相覆盖文件4.3次对22.8次，就是丢失变少的证据。</li>
+    </ul>
+  </div>
+</section>
+
+<section id="s4">
+  <h2><span class="sn">4</span>什么时候用哪种</h2>
+  <figure class="viz" id="f-quad">
+    <div class="vh"><div><h4>两个问题定一种干法</h4><p class="sub">先问单agent用不用得好上下文，再问发现能不能验证。</p></div></div>
+    <svg viewBox="0 0 560 360" aria-label="两个问题定一种干法"></svg>
+  </figure>
+  <div class="notes">
+    <p>送餐机器人fleet天然是切分型：每台在不同地方，切分是物理决定的，收益不来自推理。能赚的是共享那一层，地图变了、哪条过道堵、哪种故障在哪家店反复出现，一台发现全队受益。fleet平台该做的是那个共享日志，不是让机器人之间商量。</p>
+  </div>
+</section>
+
+<section id="s5">
+  <h2><span class="sn">5</span>给评测的四条</h2>
+  <div class="cards">
+    <div><div class="t">case标两列</div><div class="s">类（切分、独立、共享）和「子结果能否独立验证」。结果表按这两列分组。</div><div class="src">对应第3节的开关</div></div>
+    <div><div class="t">grader加一条自检</div><div class="s">随机砍掉一半agent再跑一次。砍完成绩不掉的case，证明不了协作。</div><div class="src">Zhang等，2609.05933</div></div>
+    <div><div class="t">P-13保留，理由写出来</div><div class="s">这项评测答「机制能做到多好」，不答「同样的钱谁更划算」，效果、成本、比例三列一起报。附表跑单agent的best-of-k，k取到token和多agent差不多。</div><div class="src">Kim的4800个推理token对长任务基本等于没给</div></div>
+    <div><div class="t">空位</div><div class="s">Kim那一支全测切分，Park那一支全测共享。同一批case同时测两类、同时报拉平和不拉平，没见过。case分两类标上，对照自然就有。</div><div class="src">三轮搜索的结果，写进论文前再过一遍文献</div></div>
+  </div>
+</section>
+
+<footer class="ar-foot">
+  来源：Tran、Kiela，<a href="https://arxiv.org/abs/2604.02460">arXiv 2604.02460</a> · Park等，<a href="https://arxiv.org/abs/2609.21032">arXiv 2609.21032</a> · Kim等，<a href="https://arxiv.org/abs/2512.08296">arXiv 2512.08296</a> · Zhang等，<a href="https://arxiv.org/abs/2609.05933">arXiv 2609.05933</a> · Ke等，<a href="https://arxiv.org/abs/2601.14652">arXiv 2601.14652</a> · Nechepurenko、Shuvalov，<a href="https://arxiv.org/abs/2605.03310">arXiv 2605.03310</a> · Liu等，arXiv 2609.15309 · LATTE，arXiv 2605.06320 · Chai，<a href="https://wenhaochai.com/blogs/predictable-swarm-scaling.html">Predictable Swarm Scaling</a> · Anthropic，multi-agent research system，2025-06-13。<br>
+  九篇的对照表由另一个会话整理，本页核过其中五篇的摘要，核对记录在pingce仓库<span class="num">5.素材/5.8</span>。上一页：<a href="../multi-agent-coordination/">多agent怎么协调，什么时候别用</a>。
+</footer>
+</main>
+</div>
+
+<script>
+/* 照 Chai 的 animator 写的播放头框架。用法：
+   var A = animator(fig, draw, 8000, {hold:1500, extra:[['换一张', fn]], label:function(p){return '...'}});
+   draw(p) 负责把 0..1 的播放头画成那一帧。fig 里要有一个 .fx-row 放按钮。
+   暂停存住位置，重播归零，滚进视野自动播、滚走自动停；prefers-reduced-motion 时直接画最后一帧。 */
+function animator(fig, draw, DUR, opt) {
+  opt = opt || {};
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ctl = fig.querySelector('.fx-row');
+  function mk(label, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = 'fx-btn'; b.textContent = label; b.addEventListener('click', fn); ctl.appendChild(b); return b; }
+  if (opt.extra) opt.extra.forEach(function (e) { mk(e[0], function () { e[1](); A.restart(); }); });
+  var btn = mk('暂停', function () { if (running) { st.paused = true; stop(); } else { st.paused = false; if (st.p >= 1) st.p = 0; play(); } });
+  mk('重播', function () { st.paused = false; stop(); st.p = 0; play(); });
+  var out = document.createElement('span'); out.className = 'fx-readouts'; ctl.appendChild(out);
+  var st = { p: 0, paused: false }, raf = null, start = 0, hold = 0, running = false, inView = false, HOLD = opt.hold || 1400;
+  function show(p) { st.p = p; draw(p); if (opt.label) out.innerHTML = opt.label(p); }
+  function tick(ts) {
+    if (!start) start = ts - (st.p || 0) * DUR;
+    var p = (ts - start) / DUR;
+    if (p >= 1) { show(1); if (!hold) hold = ts + HOLD; if (ts >= hold) { start = ts; hold = 0; st.p = 0; } raf = requestAnimationFrame(tick); return; }
+    show(p); raf = requestAnimationFrame(tick);
+  }
+  function play() { if (running) return; if (reduce) { show(1); return; } running = true; start = 0; hold = 0; raf = requestAnimationFrame(tick); btn.textContent = '暂停'; }
+  function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; btn.textContent = '播放'; }
+  var A = { play: play, stop: stop, redraw: function () { show(reduce ? 1 : st.p); },
+    restart: function () { stop(); st.p = 0; if (reduce) { show(1); return; } if (inView && !st.paused) play(); else show(0); } };
+  if (!reduce && 'IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (es) { es.forEach(function (e) { inView = e.isIntersecting; if (inView && !st.paused) play(); else if (!inView) stop(); }); }, { threshold: 0.2 });
+    io.observe(fig);
+  } else inView = true;
+  show(reduce ? 1 : 0);
+  return A;
+}
+/* 高分屏画布：只读一次原始高度，别把像素高写回去再读（会指数涨） */
+function hidpi(cv) {
+  if (!cv.dataset.h) cv.dataset.h = cv.getAttribute('height');
+  var r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1, h = +cv.dataset.h;
+  cv.width = Math.round(r.width * d); cv.height = Math.round(h * d); cv.style.height = h + 'px';
+  var c = cv.getContext('2d'); c.setTransform(d, 0, 0, d, 0, 0); return { ctx: c, W: r.width, H: h };
+}
+
+</script>
+<script>
+(function(){
+'use strict';
+var R=document.documentElement,reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function css(n){return getComputedStyle(R).getPropertyValue(n).trim();}
+function el(n,a,p){var x=document.createElementNS('http://www.w3.org/2000/svg',n);for(var k in a)x.setAttribute(k,a[k]);if(p)p.appendChild(x);return x;}
+function clear(s){while(s.firstChild)s.removeChild(s.firstChild);}
+function fmt(x,d){return (+x).toFixed(d==null?2:d);}
+function ease(q){return q<0.5?2*q*q:1-Math.pow(-2*q+2,2)/2;}
+function clamp01(x){return x<0?0:x>1?1:x;}
+function rgb(c){c=c.trim();if(c[0]==='#'){var h=c.slice(1);return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16),1];}var m=c.match(/[\d.]+/g)||[0,0,0,1];return [+m[0],+m[1],+m[2],m.length>3?+m[3]:1];}
+function alpha(c,a){var A=rgb(c);return 'rgba('+A[0]+','+A[1]+','+A[2]+','+fmt(a,3)+')';}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+(function(){var figs=document.querySelectorAll('figure.viz');if(reduce||!('IntersectionObserver' in window)){figs.forEach(function(f){f.classList.add('in');});return;}
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:0.25});figs.forEach(function(f){io.observe(f);});})();
+
+/* ---------- 玩具模型：M条线索，三种干法 ---------- */
+var M=16,P=0.25,TMAX=60;
+/* 一次模拟：返回三种干法下，每个 agent 每条线索被找到的时刻，以及最终答案 */
+function simulate(N,eps,seed){
+  var rnd=mulberry32(seed),res={};
+  /* 独立 / 共享 共用同一组搜索轨迹：每个agent每tick以P找到一条自己没找到的 */
+  var found=[];for(var a=0;a<N;a++){found.push(new Array(M).fill(Infinity));}
+  for(a=0;a<N;a++){var left=[];for(var i=0;i<M;i++)left.push(i);for(var t=1;t<=TMAX&&left.length;t++){if(rnd()<P){var k=Math.floor(rnd()*left.length);found[a][left[k]]=t;left.splice(k,1);}}}
+  /* 独立：挑线索最多的那个agent（并列取最早集齐的） */
+  var best=0,bestScore=-1;for(a=0;a<N;a++){var cnt=0,last=0;for(i=0;i<M;i++){if(found[a][i]<Infinity){cnt++;last=Math.max(last,found[a][i]);}}var sc=cnt*1000-last;if(sc>bestScore){bestScore=sc;best=a;}}
+  res.indep={found:found,final:found[best].map(function(t){return t<Infinity;}),finalAt:found[best].slice(),who:best};
+  /* 共享：并集，每条线索取最早 */
+  var uni=[];for(i=0;i<M;i++){var mn=Infinity;for(a=0;a<N;a++)mn=Math.min(mn,found[a][i]);uni.push(mn);}
+  res.share={found:found,final:uni.map(function(t){return t<Infinity;}),finalAt:uni};
+  /* 切分：第a个agent只找自己那份，找得更快（候选少），找完汇总，每条以eps丢 */
+  var sfound=[];for(a=0;a<N;a++)sfound.push(new Array(M).fill(Infinity));
+  var done=[];for(a=0;a<N;a++){var mine=[];for(i=a;i<M;i+=N)mine.push(i);var lft=mine.slice();for(t=1;t<=TMAX&&lft.length;t++){if(rnd()<P*Math.min(1,M/Math.max(1,mine.length)/N*N/1)){var kk=Math.floor(rnd()*lft.length);sfound[a][lft[kk]]=t;lft.splice(kk,1);}}var dt=0;for(i=0;i<M;i++)if(sfound[a][i]<Infinity)dt=Math.max(dt,sfound[a][i]);done.push(lft.length?Infinity:dt);}
+  var summaryAt=Math.max.apply(null,done.map(function(d){return d===Infinity?TMAX:d;}))+(N>1?2:0);
+  var fin=[],finAt=[];for(i=0;i<M;i++){var a0=i%N,got=sfound[a0][i]<Infinity,keep=got&&(N===1||rnd()>=eps);fin.push(keep);finAt.push(keep?summaryAt:Infinity);}
+  res.split={found:sfound,final:fin,finalAt:finAt,summaryAt:summaryAt};
+  return res;
+}
+/* 右下图：找齐时间随N，多次平均；找不齐按TMAX算 */
+function scaleCurves(eps){var out={indep:[],share:[],split:[]};for(var N=1;N<=12;N++){var s={indep:0,share:0,split:0},R=300;for(var r=0;r<R;r++){var q=simulate(N,eps,1000+r*7+N*131);['indep','share','split'].forEach(function(k){var at=q[k].finalAt.slice().sort(function(a,b){return a-b;}),need=Math.ceil(M*0.8),tt=at[need-1];s[k]+=(tt==null||tt===Infinity)?TMAX:tt;});}
+    ['indep','share','split'].forEach(function(k){out[k].push(s[k]/R);});}return out;}
+
+(function(){
+  var fig=document.getElementById('f-toy'),cv=fig.querySelector('canvas'),sn=document.getElementById('toy-n'),so=document.getElementById('toy-n-out'),se=document.getElementById('toy-e'),seo=document.getElementById('toy-e-out');
+  var chart=document.getElementById('toy-chart'),scal=document.getElementById('toy-scale');
+  var N=4,eps=0.15,seed=3,sim,geo,sc;
+  var COL={split:'--ch-s3',indep:'--ch-ref',share:'--ch-s1'},NAME={split:'切分',indep:'独立',share:'共享'},ORDER=['split','indep','share'];
+  function build(){sim=simulate(N,eps,seed);sc=scaleCurves(eps);}
+  function relayout(){geo=hidpi(cv);}
+  function frac(k,t){var f=sim[k].finalAt,c=0;for(var i=0;i<M;i++)if(f[i]<=t)c++;return c/M;}
+  function draw(p){var t=p*TMAX,ctx=geo.ctx;ctx.clearRect(0,0,geo.W,geo.H);var W=geo.W,H=geo.H,gap=14,pw=(W-gap*4)/3,top=30,rowsH=H-top-52;
+    ORDER.forEach(function(k,pi){var x0=gap+pi*(pw+gap),col=css(COL[k]),r=sim[k];
+      ctx.fillStyle=css('--ink');ctx.font='600 13px '+css('--font-sans');ctx.textAlign='left';ctx.fillText(NAME[k],x0,18);
+      ctx.fillStyle=css('--ink-3');ctx.font='11px '+css('--font-mono');var n=0;for(var i=0;i<M;i++)if(r.finalAt[i]<=t)n++;ctx.textAlign='right';ctx.fillText(n+' / '+M,x0+pw,18);
+      var cw=pw/M,rh=Math.min(16,rowsH/N);
+      for(var a=0;a<N;a++){for(i=0;i<M;i++){var ft=r.found[a][i],x=x0+i*cw,y=top+a*rh;var on=ft<=t;ctx.fillStyle=on?alpha(col,0.25+0.75*clamp01((t-ft)/3)):css('--rule-2');ctx.fillRect(x+1,y+1,cw-2,rh-2);}}
+      /* 共享：找到即进日志，画一条从格子到答案行的淡线不必要，答案行直接点亮 */
+      var yF=H-34;ctx.fillStyle=css('--ink-3');ctx.font='10.5px '+css('--font-mono');ctx.textAlign='left';ctx.fillText(k==='split'&&t>=r.summaryAt-2&&t<r.summaryAt?'汇总中':'答案',x0,yF-5);
+      for(i=0;i<M;i++){var fa=r.finalAt[i],x=x0+i*cw;var got=fa<=t;var lost=k==='split'&&!r.final[i]&&t>=r.summaryAt&&r.found[i%N][i]<Infinity;
+        ctx.fillStyle=got?col:lost?alpha(css('--ch-best'),0.5):css('--rule-2');ctx.fillRect(x+1,yF,cw-2,14);if(lost){ctx.strokeStyle=css('--ch-best');ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(x+3,yF+2);ctx.lineTo(x+cw-3,yF+12);ctx.moveTo(x+cw-3,yF+2);ctx.lineTo(x+3,yF+12);ctx.stroke();}}
+      if(k==='split'&&t>=r.summaryAt-2&&N>1){ctx.strokeStyle=alpha(col,0.6);ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.beginPath();ctx.moveTo(x0,top+N*rh+6);ctx.lineTo(x0+pw,top+N*rh+6);ctx.stroke();ctx.setLineDash([]);}
+    });
+    ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('t = '+fmt(t,0),gap,H-8);
+    drawChart(t);drawScale();}
+  function drawChart(t){clear(chart);var W=330,H=160,L=34,Rr=10,T=10,B=30,x=function(u){return L+(W-L-Rr)*u;},y=function(v){return T+(H-T-B)*(1-v);};
+    el('path',{d:'M'+L+' '+T+'V'+y(0)+'H'+(W-Rr),fill:'none',stroke:css('--ch-axis')},chart);
+    el('line',{x1:L,x2:W-Rr,y1:y(0.5),y2:y(0.5),stroke:css('--ch-grid'),'stroke-dasharray':'2 3'},chart);
+    [0,0.5,1].forEach(function(v){el('text',{x:L-6,y:y(v)+4,'text-anchor':'end','class':'fx-tick'},chart).textContent=v;});
+    [0,20,40,60].forEach(function(u){el('text',{x:x(u/TMAX),y:H-14,'text-anchor':'middle','class':'fx-tick'},chart).textContent=u;});
+    el('text',{x:(L+W-Rr)/2,y:H-2,'text-anchor':'middle','class':'fx-tick'},chart).textContent='时间';
+    el('text',{x:L+4,y:T+2,'class':'yl',style:'font-family:var(--font-chart);font-size:11.5px;fill:var(--ink-2)'},chart).textContent='答案里线索的比例 (↑ 越大越好)';
+    ORDER.forEach(function(k){var d='';for(var tt=0;tt<=t;tt+=0.5){d+=(d?'L':'M')+fmt(x(tt/TMAX),1)+' '+fmt(y(frac(k,tt)),1);}if(d){el('path',{d:d,fill:'none',stroke:css(COL[k]),'stroke-width':2.2,'stroke-linejoin':'round'},chart);el('circle',{cx:x(t/TMAX),cy:y(frac(k,t)),r:3.2,fill:css(COL[k])},chart);}});}
+  function drawScale(){clear(scal);var W=330,H=160,L=34,Rr=10,T=10,B=30,x=function(n){return L+(W-L-Rr)*(n-1)/11;},y=function(v){return T+(H-T-B)*(1-v/TMAX);};
+    el('path',{d:'M'+L+' '+T+'V'+y(0)+'H'+(W-Rr),fill:'none',stroke:css('--ch-axis')},scal);
+    [0,20,40,60].forEach(function(v){el('line',{x1:L,x2:W-Rr,y1:y(v),y2:y(v),stroke:css('--ch-grid'),'stroke-dasharray':'2 3'},scal);el('text',{x:L-6,y:y(v)+4,'text-anchor':'end','class':'fx-tick'},scal).textContent=v;});
+    [1,4,8,12].forEach(function(n){el('text',{x:x(n),y:H-14,'text-anchor':'middle','class':'fx-tick'},scal).textContent=n;});
+    el('text',{x:(L+W-Rr)/2,y:H-2,'text-anchor':'middle','class':'fx-tick'},scal).textContent='agent数';
+    el('text',{x:L+4,y:T+2,style:'font-family:var(--font-chart);font-size:11.5px;fill:var(--ink-2)'},scal).textContent='答案里有八成线索要多久 (↓ 越小越好)';
+    ORDER.forEach(function(k){var d=sc[k].map(function(v,i){return (i?'L':'M')+fmt(x(i+1),1)+' '+fmt(y(Math.min(TMAX,v)),1);}).join('');el('path',{d:d,fill:'none',stroke:css(COL[k]),'stroke-width':2.2,'stroke-linejoin':'round'},scal);});
+    el('line',{x1:x(N),x2:x(N),y1:T,y2:y(0),stroke:css('--accent'),'stroke-dasharray':'3 3'},scal);}
+  build();relayout();
+  var A=animator(fig,draw,9000,{extra:[['换一组',function(){seed=(seed*7919+13)%100000;build();}]],hold:2000});
+  sn.addEventListener('input',function(){so.textContent=sn.value;});sn.addEventListener('change',function(){N=+sn.value;build();A.restart();});
+  se.addEventListener('input',function(){seo.textContent=se.value+'%';});se.addEventListener('change',function(){eps=+se.value/100;build();A.restart();});
+  new ResizeObserver(function(){relayout();A.redraw();}).observe(cv);
+})();
+
+/* ---------- 九篇研究放一张图 ---------- */
+(function(){
+  var svg=document.querySelector('#f-lit svg');clear(svg);
+  var W=560,H=330,L=70,Rr=20,T=16,B=50,cats=['切分','独立','共享'];
+  function sy(v){ /* 超过100对数压缩 */ var s=v>100?100+40*Math.log2(v/100):v;return T+(H-T-B)*(1-(s+80)/(300))*1;}
+  var x=function(ci){return L+(W-L-Rr)*(ci+0.5)/3;};
+  var ticks=[-70,-35,0,50,100,200,264];
+  el('line',{x1:L,x2:W-Rr,y1:sy(0),y2:sy(0),stroke:css('--ink-3'),'stroke-width':1.2},svg);
+  [-70,-35,50,100,200].forEach(function(v){el('line',{x1:L,x2:W-Rr,y1:sy(v),y2:sy(v),stroke:css('--ch-grid'),'stroke-dasharray':'2 3'},svg);});
+  [-70,-35,0,50,100,200].forEach(function(v){el('text',{x:L-8,y:sy(v)+4,'text-anchor':'end','class':'fx-tick'},svg).textContent=(v>0?'+':'')+v+'%';});
+  cats.forEach(function(c,i){el('text',{x:x(i),y:H-B+22,'text-anchor':'middle','class':'fx-axis-title'},svg).textContent=c;el('line',{x1:x(i),x2:x(i),y1:T,y2:H-B,stroke:css('--rule-2')},svg);});
+  el('text',{x:L,y:T-4,'class':'fx-axis-title'},svg).textContent='相对单agent';
+  var pts=[
+    {c:0,v:80.8,eq:true,l:'Kim · Finance-Agent',dx:1,dy:-8},
+    {c:0,v:-70,eq:true,l:'Kim · PlanCraft',dx:1},
+    {c:0,v:0,eq:true,l:'Tran、Kiela · 打平或更差',dx:1,dy:16},
+    {c:0,v:90.2,eq:false,l:'Anthropic · 15倍token',dx:-1,dy:-10},
+    {c:0,v:10,eq:false,sq:true,l:'LATTE · 对领队分配',dx:1,dy:-8},
+    {c:1,v:1.4,eq:true,l:'2606.05670 · 协议对齐',dx:1,dy:-12},
+    {c:2,v:264,eq:false,l:'Park · ARC-AGI-3 team@5',dx:-1},
+    {c:2,v:-1.7,eq:false,l:'Park · Terminal-Bench 2.0',dx:-1,dy:18}
+  ];
+  pts.forEach(function(p,i){var cx=x(p.c)+(p.dx>0?-14:14)*0,cy=sy(p.v),col=p.v>=1?css('--ch-s1'):p.v<=-1?css('--ch-best'):css('--ch-ref');
+    var g=el('g',{'class':'anim-fade'},svg);g.style.setProperty('--d',(i*90)+'ms');
+    if(p.sq)el('rect',{x:cx-5,y:cy-5,width:10,height:10,fill:p.eq?col:css('--paper'),stroke:col,'stroke-width':2},g);
+    else el('circle',{cx:cx,cy:cy,r:5.5,fill:p.eq?col:css('--paper'),stroke:col,'stroke-width':2},g);
+    el('text',{x:cx+(p.dx>0?10:-10),y:cy+4+(p.dy||0),'text-anchor':p.dx>0?'start':'end','class':'lbl'},g).textContent=p.l;});
+  var lg=document.createElement('div');lg.className='legend';lg.innerHTML='<span class="li"><i class="dt" style="background:var(--ink-3)"></i>拉平了预算</span><span class="li"><i class="dt" style="border:2px solid var(--ink-3);background:var(--paper)"></i>没拉平</span><span class="li"><i class="dt" style="background:var(--ch-s1)"></i>多agent赢</span><span class="li"><i class="dt" style="background:var(--ch-best)"></i>多agent输</span>';svg.parentNode.insertBefore(lg,svg.nextSibling);
+})();
+
+/* ---------- 开关是验证：三对 ---------- */
+(function(){
+  var svg=document.querySelector('#f-switch svg');clear(svg);
+  var W=560,H=250,panels=[
+    {t:'Kim，切分',u:'相对单agent',a:['Finance-Agent',80.8,'+80.8%'],b:['PlanCraft',-70,'−70%'],max:90},
+    {t:'Park，共享',u:'team@N 对 best@N',a:['ARC-AGI-3',264,'×3.6'],b:['Terminal-Bench',-20,'−1.7个点'],max:280},
+    {t:'Chai，切分',u:'64个agent的加速比',a:['coverage',28,'28×'],b:['best score',12,'12×'],max:30}
+  ];
+  var pw=(W-40)/3;
+  panels.forEach(function(p,i){var x0=20+i*pw,mid=x0+pw/2,top=52,bot=H-48,neg=Math.max(0,-p.b[1]),zero=neg?top+(bot-top)*0.62:bot,sc=Math.min((zero-top)/p.max,neg?(bot-zero-4)/neg:1e9);
+    el('text',{x:x0,y:16,'class':'fx-axis-title'},svg).textContent=p.t;el('text',{x:x0,y:30,'class':'fx-tick'},svg).textContent=p.u;
+    el('line',{x1:x0,x2:x0+pw-12,y1:zero,y2:zero,stroke:css('--ink-3')},svg);
+    [[p.a,x0+14,css('--ch-s1')],[p.b,x0+pw/2+4,p.b[1]<0?css('--ch-best'):css('--ch-s1')]].forEach(function(q,j){var v=q[0][1],h=Math.abs(v)*sc,y=v>=0?zero-h:zero,bw=pw/2-26;
+      var r=el('rect',{x:q[1],y:y,width:bw,height:Math.max(h,2),rx:2,fill:q[2],'class':'anim-bar'},svg);r.style.setProperty('--d',(i*150+j*90)+'ms');if(v<0)r.style.transformOrigin='50% 0';
+      var tv=el('text',{x:q[1]+bw/2,y:v>=0?y-6:y+h+14,'text-anchor':'middle','class':'lbl strong anim-fade'},svg);tv.textContent=q[0][2];tv.style.setProperty('--d',(300+i*150+j*90)+'ms');
+      el('rect',{x:x0,y:(j===0?H-30:H-14)-9,width:9,height:9,rx:1,fill:q[2]},svg);var nm=el('text',{x:x0+14,y:j===0?H-30:H-14,'class':'fx-tick'},svg);nm.textContent=q[0][0]+' · '+(j===0?'能验证':'不能验证');});});
+})();
+
+/* ---------- 两个问题定一种干法 ---------- */
+(function(){
+  var svg=document.querySelector('#f-quad svg');clear(svg);
+  var W=560,H=360,L=150,T=40,cw=(W-L-16)/2,ch=(H-T-20)/2;
+  var Q=[
+    [0,0,'单agent用得好 · 发现能验证','共享能赚，切分不必','Park的ARC-AGI-3；Kim说单agent过45%就别切',css('--ch-soft-1')],
+    [1,0,'单agent用得好 · 发现核不了','别用多agent','Tran和Kiela的多跳问答；Park的Terminal-Bench',css('--ch-soft-2')],
+    [0,1,'单agent用不好 · 子结果可验证','切分赚','Anthropic研究系统；Chai的coverage；LATTE',css('--ch-soft-1')],
+    [1,1,'单agent用不好 · 子结果成链','切分也亏，先把验证做出来','Kim的PlanCraft',css('--ch-soft-2')]
+  ];
+  Q.forEach(function(q,i){var x=L+q[0]*cw,y=T+q[1]*ch,g=el('g',{'class':'anim-fade'},svg);g.style.setProperty('--d',(i*120)+'ms');
+    el('rect',{x:x+4,y:y+4,width:cw-8,height:ch-8,rx:3,fill:q[5],stroke:css('--rule')},g);
+    el('text',{x:x+16,y:y+26,'class':'fx-tick'},g).textContent=q[2];
+    el('text',{x:x+16,y:y+52,'class':'qt'},g).textContent=q[3];
+    var words=q[4].split('；');words.forEach(function(w,k){el('text',{x:x+16,y:y+76+k*17,'class':'q'},g).textContent=w;});});
+  el('text',{x:L+cw/2,y:T-14,'text-anchor':'middle','class':'fx-axis-title'},svg).textContent='发现 / 子结果能验证';
+  el('text',{x:L+cw*1.5,y:T-14,'text-anchor':'middle','class':'fx-axis-title'},svg).textContent='核不了';
+  el('text',{x:L-12,y:T+ch/2,'text-anchor':'end','class':'fx-axis-title'},svg).textContent='单agent用得好上下文';
+  el('text',{x:L-12,y:T+ch*1.5,'text-anchor':'end','class':'fx-axis-title'},svg).textContent='单agent过了拐点';
+  el('text',{x:L-12,y:T+ch*1.5+16,'text-anchor':'end','class':'fx-tick'},svg).textContent='Liu等的Elo拐点';
+})();
+
+(function(){var links=document.querySelectorAll('.ar-toc a');if(!links.length||!('IntersectionObserver' in window))return;var secs=[].map.call(links,function(a){return document.querySelector(a.getAttribute('href'));});
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){var i=secs.indexOf(e.target);links.forEach(function(a,k){a.classList.toggle('active',k===i);});}});},{rootMargin:'-20% 0px -70% 0px'});secs.forEach(function(s){if(s)io.observe(s);});})();
+})();
+</script>
