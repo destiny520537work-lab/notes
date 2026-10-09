@@ -125,6 +125,13 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
 .viz.in .anim-fade{opacity:1;transition:opacity .35s ease var(--d,0ms)}
 .viz.in .anim-line{stroke-dashoffset:0!important;transition:stroke-dashoffset 1.1s cubic-bezier(.4,0,.2,1) var(--d,0ms)}
 .hero{margin:36px 0 28px}
+.fx-ctrls{display:grid;grid-template-columns:auto 1fr 4ch;gap:9px 12px;align-items:center;margin-top:10px;font-family:var(--font-mono);font-size:13px;color:var(--ink-2)}
+.fx-ctrls label{font-size:12px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap}
+.fx-ctrls input[type=range]{width:100%;min-width:0;height:2px;margin:0;accent-color:var(--accent);cursor:pointer}
+.fx-ctrls output{text-align:right;font-variant-numeric:tabular-nums;color:var(--ink);font-size:13px}
+#open-readout{margin:8px 0 0;font-size:13px}
+#open-readout b{font-size:15px}
+.mini svg text.yl{font-family:var(--font-chart);font-size:11.5px;fill:var(--ink-2)}
 </style>
 
 <div class="ar-page">
@@ -144,185 +151,207 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p class="ar-standfirst">两篇新东西放一起看：Chai的swarm模拟（2026-09-27）说清了「人多为什么不线性变快」，LATTE（arXiv 2605.06320）用300次真实验说清了「共享一张会变的任务图为什么赢」。页面上的动画是按Chai的规则自己复现的模拟，数字标了出处。</p>
 </header>
 
+
 <main class="ar-main">
-
 <figure class="viz hero" id="f-open">
-  <div class="vh"><div><h4>同一张任务图，先1个agent，再4个agent</h4><p class="sub">节点按完成它的agent上色，彗星从解锁它的那一步飞过来。红圈是目前最好的一步。横轴是单agent跑完全部步骤的时间T₁。</p></div></div>
-  <canvas height="340" aria-label="任务DAG，节点随时间点亮"></canvas>
+  <div class="vh"><div><h4>标准swarm</h4><p class="sub">一条分支做完，协调者立刻派一个新agent去随机一个就绪步骤。</p></div></div>
+  <canvas height="360" aria-label="任务DAG，节点随时间点亮"></canvas>
+  <div class="fx-readouts" id="open-readout"></div>
+  <div class="fx-ctrls"><label for="open-n">swarm规模</label><input type="range" id="open-n" min="0" max="5" step="1" value="2"><output id="open-n-out">4</output></div>
   <div class="mini">
-    <div><span>做完多少步（coverage）</span><svg viewBox="0 0 330 130" class="chart" data-k="cov"></svg></div>
-    <div><span>做出的最好结果（best score）</span><svg viewBox="0 0 330 130" class="chart" data-k="best"></svg></div>
+    <div><svg viewBox="0 0 330 150" class="chart" data-k="cov"></svg></div>
+    <div><svg viewBox="0 0 330 150" class="chart" data-k="best"></svg></div>
   </div>
-  <div class="legend"><span class="li"><i class="lk" style="border-color:var(--ch-ref)"></i>1个agent</span><span class="li"><i class="lk" style="border-color:var(--ch-s1)"></i>4个agent，一个协调者派活</span><span class="li"><i class="dt" style="border:2px solid var(--ch-best)"></i>目前最好的一步</span></div>
   <div class="fx-row"></div>
-  <figcaption>随机生成一张约240步、12层的DAG，按Chai的规则跑：每步要等所有前置做完；agent永远取自己列表里最深的一步；协调者在有人空出来时派一个随机就绪步骤。agent启动或接手别人的活付5%中位步长，一个组里两人同时干活每步慢15%，再多一人全组再慢1%。<b>按几下「换一张DAG」看右边那两个倍数</b>：覆盖那个每次都在3到4倍，最优那个会从1倍跳到3倍。单次抽样下不了结论，第3节是400张图的分布。</figcaption>
+  <figcaption>1到32个agent的标准swarm，跑同一张约240步、12层的随机DAG；上图是滑条选中的规模的一次运行，每个步骤和指向它的边按完成它的agent上色，灰色是没做的，红圈是目前最好的一步。下图每个规模一条线，黑色是单agent，蓝色越深规模越大，粗线是当前规模。规则照Chai：每步要等所有前置做完；agent永远取自己列表里最深的一步；agent启动或接手别人的活付5%中位步长，一个组里两人同时干活每步慢15%，再多一人全组再慢1%。</figcaption>
 </figure>
-
+<div class="notes">
+  <p>滑条换规模，上图和右边的粗线跟着换。看两件事：</p>
+  <ul>
+    <li><b>coverage那条随规模明显提前。</b>能并行的步骤多，人多就快。</li>
+    <li><b>best score那条领先少得多。</b>最好的结果在图的深处，要沿一条链一步步走下去，人多绕不过去。</li>
+  </ul>
+  <p class="key">多agent赚不赚钱，先看任务是宽还是窄。</p>
+  <p>按几下「换一张DAG」，倍数每张图都不一样。<b>单次抽样下不了结论</b>，第3节有400张图的分布。</p>
+</div>
 <ol class="standfirst-list">
   <li><span class="n">01</span><span><b>加人对「做完多少」有用，对「做到多好」帮助小。</b>最好的结果卡在那一条必须一步步走的链上，64人到半覆盖快28倍，到最优解只快12倍。</span></li>
   <li><span class="n">02</span><span><b>协调有成本，组越大成本越高。</b>一个64人的大组平均到不了0.95，8个8人的小组0.13T₁就到。</span></li>
   <li><span class="n">03</span><span><b>让团队共同维护一张会变的任务图，</b>比固定领队分配高10个点，比各干各的高6个点，比固定流水线高46个点，token只用一半。</span></li>
 </ol>
+<!-- 0 开场动画 -->
 
+
+<!-- 1 任务长什么样 -->
 <section id="s1">
   <h2><span class="sn">1</span>为什么能把一个任务画成图</h2>
-  <figure class="viz" id="f-grow">
-    <div class="vh"><div><h4>任务图是怎么长出来的</h4><p class="sub">每长一层分三拍：先给上一层每个节点标出被选为父节点的概率，再从选中的父节点长出边，最后新节点落下来。颜色越深这一步的值越高，红圈是目前最好的。</p></div></div>
-    <canvas height="300" aria-label="任务DAG逐层生长"></canvas>
-    <div class="fx-row"></div>
-    <figcaption>生成规则照Chai：每一步是上一层某一步的变体，父节点改进越大被选中越多（概率∝e^{1.4δ}）；46%的步骤再合并前面几个改动；值等于最好父节点的值加一个随深度变小的随机改进。他的生成器拟合自两张真实实验记录（搜预训练配方、搜diffusion配方），约723步17层。</figcaption>
-  </figure>
-  <div class="notes">
-    <p>一步工作是一个节点，「B要等A做完」是一条边。调配方、修bug、做数据分析都是这个形状：每一步建立在前面某一步上。</p>
-    <ul>
-      <li>收益集中在早期：根附近六成五的变体比父节点好，最深层只有三分之一。</li>
-      <li>最优解靠深处少数还在改进的变体，一张图里只有六分之一能到0.95。</li>
-    </ul>
-    <figure class="viz" id="f-wide">
-      <div class="vh"><div><h4>图有宽有窄</h4><p class="sub">同样36步，左边4层，右边13层。</p></div></div>
-      <div class="mini">
-        <div><span>宽图：每层可并行的步骤多</span><canvas height="120"></canvas></div>
-        <div><span>窄图：一条长链</span><canvas height="120"></canvas></div>
-      </div>
+  <div class="grid">
+    <figure class="viz" id="f-grow">
+      <div class="vh"><div><h4>任务图怎么长</h4><p class="sub">每个新步骤先抽一个父步骤，再在它上面加一个变化。</p></div></div><canvas height="260" aria-label="任务DAG逐层生长"></canvas>
+      <div class="legend"><span><i style="background:var(--a)"></i>颜色越深这一步的值越高</span><span><i style="background:var(--b)"></i>目前最好的一步</span></div>
+      <div class="fx-row"></div>
+      <figcaption>生成规则照Chai：每一步是上一层某一步的变体，父节点改进越大被选中越多（概率∝e^{1.4δ}）；46%的步骤再合并前面几个改动；值等于最好父节点的值加一个随深度变小的随机改进。他的生成器拟合自两张真实实验记录（搜预训练配方、搜diffusion配方），约723步17层。</figcaption>
     </figure>
-    <p class="key">宽图多agent赚，窄图多agent亏。多agent赚不赚钱，先看任务是宽还是窄。</p>
+    <div class="notes">
+      <p>一步工作是一个节点，「B要等A做完」是一条边。调配方、修bug、做数据分析都是这个形状：每一步建立在前面某一步上。</p>
+      <ul>
+        <li>收益集中在早期：根附近六成五的变体比父节点好，最深层只有三分之一。</li>
+        <li>最优解靠深处少数还在改进的变体，一张图里只有六分之一能到0.95。</li>
+      </ul>
+      <p class="sub" style="font-family:var(--font-chart);font-size:14px;color:var(--ink-3);margin:14px 0 4px">宽图和窄图：同样36步，左边4层，右边13层。</p>
+      <div class="mini" id="f-wide">
+        <div><span>宽图：每层可并行的步骤多</span><canvas height="110"></canvas></div>
+        <div><span>窄图：一条长链</span><canvas height="110"></canvas></div>
+      </div>
+      <p class="key">图有宽有窄。宽图多agent赚，窄图多agent亏。</p>
+    </div>
   </div>
 </section>
 
+<!-- 2 五种形态 -->
 <section id="s2">
   <h2><span class="sn">2</span>现在的多agent系统，人和人之间怎么接活</h2>
-  <figure class="viz" id="f-forms">
-    <div class="vh"><div><h4>五种协作形态，外加群聊</h4><p class="sub">红点是消息。点上面的标签切换。</p></div></div>
-    <div class="tabs" role="tablist"></div>
-    <svg viewBox="0 0 560 270" aria-label="协作形态示意"></svg>
-    <figcaption id="forms-cap"></figcaption>
-  </figure>
-  <div class="notes">
-    <p>GitHub上扫了一遍（星数是2026-10-08当天的），归成五种，外加没有结构的群聊。</p>
-    <div class="tablewrap"><table>
-      <thead><tr><th>形态</th><th>代表</th><th>我们在测</th></tr></thead>
-      <tbody>
-        <tr><td>派活回收</td><td>Claude Code subagents（14.98万星）、Anthropic研究系统</td><td>Claude Code</td></tr>
-        <tr><td>交接</td><td>OpenAI Agents SDK handoff（2.99万星）</td><td class="miss">无</td></tr>
-        <tr><td>固定流水线</td><td>MetaGPT（7.08万星）、ChatDev 1.0</td><td class="miss">无</td></tr>
-        <tr><td>协调者加规划者加worker</td><td>CAMEL Workforce（1.78万星）、CrewAI hierarchical</td><td>CAMEL</td></tr>
-        <tr><td>共享看板</td><td>Claude Code agent teams、LATTE</td><td>Raft、Cumora是弱版本：有卡片没依赖边</td></tr>
-        <tr><td>群聊</td><td>AutoGen group chat</td><td>Raft、Cumora现在主要是这个</td></tr>
-      </tbody>
-    </table></div>
+  <div class="grid">
+    <figure class="viz" id="f-forms">
+      <div class="vh"><div><h4>六种接活的方式</h4><p class="sub">红点是一条消息，沿着它走的方向流。</p></div></div><div class="tabs" role="tablist"></div>
+      <svg viewBox="0 0 520 260" aria-label="协作形态示意"></svg>
+      <figcaption id="forms-cap"></figcaption>
+    </figure>
+    <div class="notes">
+      <p>GitHub上扫了一遍（星数是2026-10-08当天的），归成五种，外加没有结构的群聊。</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>形态</th><th>代表</th><th>我们在测</th></tr></thead>
+        <tbody>
+          <tr><td>派活回收</td><td>Claude Code subagents（14.98万星）、Anthropic研究系统</td><td>Claude Code</td></tr>
+          <tr><td>交接</td><td>OpenAI Agents SDK handoff（2.99万星）</td><td class="miss">无</td></tr>
+          <tr><td>固定流水线</td><td>MetaGPT（7.08万星）、ChatDev 1.0</td><td class="miss">无</td></tr>
+          <tr><td>协调者加规划者加worker</td><td>CAMEL Workforce（1.78万星）、CrewAI hierarchical</td><td>CAMEL</td></tr>
+          <tr><td>共享看板</td><td>Claude Code agent teams、LATTE</td><td>Raft、Cumora是弱版本：有卡片没依赖边</td></tr>
+          <tr><td>群聊</td><td>AutoGen group chat</td><td>Raft、Cumora现在主要是这个</td></tr>
+        </tbody>
+      </table></div>
+    </div>
   </div>
 </section>
 
+<!-- 3 协调的代价 -->
 <section id="s3">
   <h2><span class="sn">3</span>人多了为什么不是线性变快</h2>
-  <figure class="viz" id="f-cost">
-    <div class="vh"><div><h4>比1个agent快多少倍</h4><p class="sub">标准swarm，1到64个agent。我们按Chai的规则复现的模拟，16个任务×约300步×12层，几何平均。</p></div></div>
-    <svg viewBox="0 0 560 300" aria-label="加速比随agent数变化"></svg>
-    <div class="legend"><span class="li"><i class="lk" style="border-color:var(--ch-s1)"></i>到一半覆盖</span><span class="li"><i class="lk" style="border-color:var(--ch-best);border-top-style:dashed"></i>到best score 0.8</span><span class="li"><i class="lk" style="border-color:var(--ink-3);border-top-style:dotted"></i>线性（人多几倍就快几倍）</span></div>
-    <figcaption>他原文64人是33倍和16倍，我们是28倍和12倍。两条线都在线性之下，best那条掉得更狠。</figcaption>
-  </figure>
-  <div class="notes">
-    <ul>
-      <li><b>λ=ln(加速比)/ln(N)</b>，我们这组在0.80到0.94。</li>
-      <li><b>实测比模拟更悲观。</b>Toby Ord拿OpenAI GPT-5.6发布页的数据回归，N个agent≈一个agent跑N^λ倍时间，λ是BrowseComp 0.68、SEC-Bench Pro 0.57、Terminal-Bench 0.48。Chai的成本设得偏乐观。</li>
-    </ul>
-    <figure class="viz" id="f-split">
-      <div class="vh"><div><h4>同样64个agent，怎么切</h4><p class="sub">到best score 0.95要多久，单位T₁。Chai博客图5的数字，4096次平均。</p></div></div>
-      <svg viewBox="0 0 560 150" aria-label="64个agent怎么切"></svg>
+  <div class="grid">
+    <figure class="viz" id="f-cost">
+      <div class="vh"><div><h4>加速比随规模变化</h4><p class="sub">人多几倍，不等于快几倍。</p></div></div><svg viewBox="0 0 560 300" aria-label="加速比随agent数变化"></svg>
+      <div class="legend"><span><span class="ln" style="border-color:var(--a)"></span>到一半覆盖</span><span><span class="ln dash" style="border-color:var(--b)"></span>到best score 0.8</span><span><span class="ln" style="border-color:var(--rule);border-top-style:dotted"></span>线性（人多几倍就快几倍）</span></div>
+      <figcaption>我们按Chai的规则复现的模拟：16个任务×约300步×12层，标准swarm，几何平均。成本设定照他：agent启动或接手别人的活一次性付5%中位步长；一个组里两人同时干活每步慢15%，再多一人全组再慢1%。他原文64人是33倍和16倍，我们是28倍和12倍。</figcaption>
     </figure>
-    <p class="key">一个大组不如几个小组。先各自试，再把人力并给领先的组。</p>
-    <h3>单次抽样能飘多少</h3>
-    <p>同样的规则抽400张图，每张跑1个agent和4个agent，同一张图同一个种子。</p>
-    <div class="tablewrap"><table>
-      <thead><tr><th></th><th>10分位</th><th>几何均值</th><th>90分位</th></tr></thead>
-      <tbody>
-        <tr><td>覆盖一半的加速比</td><td>3.02</td><td>3.57</td><td>4.25</td></tr>
-        <tr><td>最优分数到0.8的加速比</td><td>1.07</td><td>1.97</td><td>3.23</td></tr>
-      </tbody>
-    </table></div>
-    <p>覆盖那条每次都在3到4倍，最优那条从1.07飘到3.23，<b>9%的抽样里多agent在最优分数上反而更慢</b>。原因是单agent自己就快：它找到一张图最优解的时刻中位数是0.62 T₁，剩下四成时间对最优分数没有贡献，天花板本来就只有一倍多。</p>
-    <p>这也是他正文的图用16个任务平均、擂台图用4096次平均的原因。博客顶上那个按钮是给人玩的，不是用来下结论的。脚本在<code>5.素材/swarm-sim/measure.js</code>。</p>
+    <div class="notes">
+      <ul>
+        <li><b>两条线都在线性之下，best那条掉得更狠。</b>λ=ln(加速比)/ln(N)，我们这组在0.80到0.94。</li>
+        <li><b>实测比模拟更悲观。</b>Toby Ord拿OpenAI GPT-5.6发布页的数据回归，N个agent≈一个agent跑N^λ倍时间，λ是BrowseComp 0.68、SEC-Bench Pro 0.57、Terminal-Bench 0.48。Chai的成本设得偏乐观。</li>
+      </ul>
+      <figure class="viz" id="f-split">
+      <div class="vh"><div><h4>64个agent怎么切</h4><p class="sub">几个小组赢一个大组。</p><p class="sub">到best score 0.95要多久，单位T₁，Chai博客图5的数字，4,096次运行的平均。一个64人的大组平均到不了。</p></div></div><svg viewBox="0 0 420 150" aria-label="64个agent怎么切"></svg>
+        <figcaption>同样64个agent，到best score 0.95要多久（T₁）。Chai博客图5的数字，4096次平均。</figcaption>
+      </figure>
+      <p class="key">一个大组不如几个小组。先各自试，再把人力并给领先的组。</p>
+      <h3>单次抽样能飘多少</h3>
+      <p>同样的规则抽400张图，每张跑1个agent和4个agent，同一张图同一个种子：</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th></th><th>10分位</th><th>几何均值</th><th>90分位</th></tr></thead>
+        <tbody>
+          <tr><td>覆盖一半的加速比</td><td>3.02</td><td>3.57</td><td>4.25</td></tr>
+          <tr><td>最优分数到0.8的加速比</td><td>1.07</td><td>1.97</td><td>3.23</td></tr>
+        </tbody>
+      </table></div>
+      <p>覆盖那条每次都在3到4倍，最优那条从1.07飘到3.23，<b>9%的抽样里多agent在最优分数上反而更慢</b>。原因是单agent自己就快：它找到一张图最优解的时刻中位数是0.62 T₁，剩下四成时间对最优分数没有贡献，天花板本来就只有一倍多。</p>
+      <p>这也是他正文的图用16个任务平均、擂台图用4096次平均的原因。顶上那个按钮是给人玩的。</p>
+    </div>
   </div>
 </section>
 
+<!-- 4 LATTE -->
 <section id="s4">
   <h2><span class="sn">4</span>怎么把「共享看板」做对：LATTE的任务图</h2>
-  <figure class="viz" id="f-latte">
-    <div class="vh"><div><h4>一张任务图逐轮演化</h4><p class="sub">上面一排是Lead和四个Worker，彗星是谁对哪个节点做了操作。照论文的七个操作手写的一段剧本，10轮。</p></div></div>
-    <svg viewBox="0 0 600 390" aria-label="LATTE任务图逐轮演化"></svg>
-    <div class="legend"><span class="li"><i class="dt" style="border:1.5px solid var(--ink-3)"></i>pending</span><span class="li"><i class="dt" style="background:var(--ch-soft-1);border:1.5px solid var(--ch-s1)"></i>有人在做</span><span class="li"><i class="dt" style="background:var(--ch-s1)"></i>done</span><span class="li"><i class="dt" style="background:var(--ch-soft-2);border:1.5px solid var(--ch-best)"></i>Verify / 卡住</span></div>
-    <div class="fx-row"></div>
-    <figcaption id="latte-log"></figcaption>
-  </figure>
-  <div class="notes">
-    <p>一张DAG，节点是子任务，每个节点挂（负责人，状态）。七个操作，按谁看得见什么来分权限：</p>
-    <div class="tablewrap"><table>
-      <thead><tr><th>操作</th><th>谁</th><th>干什么</th></tr></thead>
-      <tbody>
-        <tr><td>Discover</td><td>Lead、Worker</td><td>加一个节点，带依赖</td></tr>
-        <tr><td>Assign</td><td>Lead</td><td>派给某个Worker</td></tr>
-        <tr><td>Claim</td><td>Worker</td><td>自己从就绪队列认领</td></tr>
-        <tr><td>Complete</td><td>Worker</td><td>标完成</td></tr>
-        <tr><td>Release</td><td>Lead</td><td>把卡住的收回重派</td></tr>
-        <tr><td>Close</td><td>Lead</td><td>测试已过但没人报，强制关</td></tr>
-        <tr><td>Verify</td><td>Lead</td><td>给高风险节点插一个复核</td></tr>
-      </tbody>
-    </table></div>
-    <p>每轮五步：heartbeat→算就绪队列→派人→并行跑→收结果。Worker只看自己那张卡和前置卡，Lead留最近10条消息，Worker留20条。Lead自己不改文件。</p>
-    <h3>三个任务具体是什么</h3>
-    <p>全是作者自建的，没有公开集。选这三个是因为它们吃的协作能力不一样。</p>
-    <div class="tablewrap"><table>
-      <thead><tr><th></th><th>给什么</th><th>要交什么</th><th>为什么选它</th></tr></thead>
-      <tbody>
-        <tr><td><b>数据分析</b></td><td>400条员工记录的HR表，8个故意起得看不懂的列名，不给数据字典</td><td><code>config.py</code>列名映射（下游都要import）加<code>findings.json</code>五类分析带量化证据</td><td>该往哪挖只有挖到一半才知道，静态分解一定不够</td></tr>
-        <tr><td><b>调试</b></td><td>Python信号处理库，8个函数各埋1个bug，比如归一化分母少开根号、不等号方向反了</td><td>全部测试通过</td><td>多个bug能同时查，但有些函数要等依赖修好才验得了</td></tr>
-        <tr><td><b>扩库</b></td><td>半成品Python文本处理库，已有Document类、Tokenizer类、utils模块</td><td>扩展那两个类，再从stub建6个新模块：sentiment、keywords、summarizer、similarity、formatter、pipeline</td><td>结构事先全知道：2个人改类→6个模块并行→1个人集成。故意当对照组</td></tr>
-      </tbody>
-    </table></div>
-    <p>判分都靠私有测试集。数据分析那题埋了三个真相：满意度是流失主因、工资是双峰分布、流失率按部门差很多。</p>
-    <h3>这个实验花了多少钱</h3>
-    <div class="tablewrap"><table>
-      <thead><tr><th>模型</th><th>API调用</th><th>输入token</th><th>输出token</th><th>花费</th></tr></thead>
-      <tbody>
-        <tr><td>Claude Sonnet 4-6</td><td>2136次</td><td>4070万</td><td>850万</td><td>约$250</td></tr>
-        <tr><td>GPT-5.2</td><td>4582次</td><td>8310万</td><td>1400万</td><td>约$260</td></tr>
-      </tbody>
-    </table></div>
-    <p>5种结构×3个任务×10次，两个模型合计300次，<b>约$510</b>。我们给MT报预算时可以直接引这个参照。</p>
+  <div class="grid">
+    <figure class="viz" id="f-latte">
+      <div class="vh"><div><h4>一张任务图逐轮演化</h4><p class="sub">Lead只动图，Worker只动自己那张卡，空闲的自己认领。</p></div></div><svg viewBox="0 0 560 330" aria-label="LATTE任务图逐轮演化"></svg>
+      <div class="legend"><span><i style="border:1.5px solid var(--ink-3);background:transparent"></i>pending</span><span><i style="background:var(--a-soft);border:1.5px solid var(--a)"></i>有人在做</span><span><i style="background:var(--a)"></i>done</span><span><i style="background:var(--b-soft);border:1.5px solid var(--b)"></i>Verify / 卡住</span></div>
+      <div class="fx-row"></div>
+      <figcaption id="latte-log"></figcaption>
+    </figure>
+    <div class="notes">
+      <p>一张DAG，节点是子任务，每个节点挂（负责人，状态）。七个操作，按谁看得见什么来分权限：</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th>操作</th><th>谁</th><th>干什么</th></tr></thead>
+        <tbody>
+          <tr><td>Discover</td><td>Lead、Worker</td><td>加一个节点，带依赖</td></tr>
+          <tr><td>Assign</td><td>Lead</td><td>派给某个Worker</td></tr>
+          <tr><td>Claim</td><td>Worker</td><td>自己从就绪队列认领</td></tr>
+          <tr><td>Complete</td><td>Worker</td><td>标完成</td></tr>
+          <tr><td>Release</td><td>Lead</td><td>把卡住的收回重派</td></tr>
+          <tr><td>Close</td><td>Lead</td><td>测试已过但没人报，强制关</td></tr>
+          <tr><td>Verify</td><td>Lead</td><td>给高风险节点插一个复核</td></tr>
+        </tbody>
+      </table></div>
+      <p>每轮五步：heartbeat→算就绪队列→派人→并行跑→收结果。Worker只看自己那张卡和前置卡，Lead留最近10条消息，Worker留20条。Lead自己不改文件。</p>
+      <h3>三个任务具体是什么</h3>
+      <p>全是作者自建的，没有公开集。选这三个是因为它们吃的协作能力不一样。</p>
+      <div class="tablewrap"><table>
+        <thead><tr><th></th><th>给什么</th><th>要交什么</th><th>为什么选它</th></tr></thead>
+        <tbody>
+          <tr><td><b>数据分析</b></td><td>400条员工记录的HR表，8个故意起得看不懂的列名，不给数据字典</td><td><code>config.py</code>列名映射（下游都要import）加<code>findings.json</code>五类分析带量化证据</td><td>该往哪挖只有挖到一半才知道，静态分解一定不够</td></tr>
+          <tr><td><b>调试</b></td><td>Python信号处理库，8个函数各埋1个bug，比如归一化分母少开根号、不等号方向反了</td><td>全部测试通过</td><td>多个bug能同时查，但有些函数要等依赖修好才验得了</td></tr>
+          <tr><td><b>扩库</b></td><td>半成品Python文本处理库，已有Document类、Tokenizer类、utils模块</td><td>扩展那两个类，再从stub建6个新模块：sentiment、keywords、summarizer、similarity、formatter、pipeline</td><td>结构事先全知道：2个人改类→6个模块并行→1个人集成。故意当对照组</td></tr>
+        </tbody>
+      </table></div>
+      <p>判分都靠私有测试集。数据分析那题埋了三个真相：满意度是流失主因、工资是双峰分布、流失率按部门差很多。</p>
+      <h3>这个实验花了多少钱</h3>
+      <div class="tablewrap"><table>
+        <thead><tr><th>模型</th><th>API调用</th><th>输入token</th><th>输出token</th><th>花费</th></tr></thead>
+        <tbody>
+          <tr><td>Claude Sonnet 4-6</td><td>2136次</td><td>4070万</td><td>850万</td><td>约$250</td></tr>
+          <tr><td>GPT-5.2</td><td>4582次</td><td>8310万</td><td>1400万</td><td>约$260</td></tr>
+        </tbody>
+      </table></div>
+      <p>5种结构×3个任务×10次，两个模型合计300次，<b>约$510</b>。这是我们报预算时能直接引的参照。</p>
+    </div>
   </div>
-  <figure class="viz" id="f-res">
-    <div class="vh"><div><h4>五种结构的准确率和token</h4><p class="sub">LATTE论文表2，5种结构×2个模型（claude-sonnet-4-6、gpt-5.2）×3个任务×10次，共300次。</p></div></div>
-    <svg viewBox="0 0 560 250" aria-label="五种结构的准确率和token"></svg>
-    <figcaption>静态图和LATTE只差一件事：图能不能在跑的过程中改。差了22个点。</figcaption>
-  </figure>
-  <figure class="viz" id="f-conf">
-    <div class="vh"><div><h4>冲突有多少</h4><p class="sub">每次运行的平均值。</p></div></div>
-    <svg viewBox="0 0 560 250" aria-label="冲突指标"></svg>
-    <figcaption>这三项加上作废字符数、活跃轮占比、子任务时长，可以直接进我们的grader。</figcaption>
-  </figure>
+  <div class="grid" style="margin-top:22px">
+    <figure class="viz" id="f-res">
+      <div class="vh"><div><h4>五种结构的准确率和token</h4><p class="sub">图能不能在跑的过程中改，差了22个点。</p></div></div><svg viewBox="0 0 560 250" aria-label="五种结构的准确率和token"></svg>
+      <figcaption>LATTE论文表2，5种结构×2个模型（claude-sonnet-4-6、gpt-5.2）×3个任务×10次，共300次。静态图和LATTE只差一件事：图能不能在跑的过程中改。</figcaption>
+    </figure>
+    <figure class="viz" id="f-conf">
+      <div class="vh"><div><h4>冲突有多少</h4><p class="sub">显式的任务分配让agent各做各的，不互相覆盖。</p></div></div><svg viewBox="0 0 420 250" aria-label="冲突指标"></svg>
+      <figcaption>每次运行的平均值。这三项加上作废字符数、活跃轮占比、子任务时长，可以直接进我们的grader。</figcaption>
+    </figure>
+  </div>
 </section>
 
+<!-- 5 什么时候亏 -->
 <section id="s5">
   <h2><span class="sn">5</span>多agent是不是总比单agent好</h2>
-  <figure class="viz" id="f-when">
-    <div class="vh"><div><h4>六个benchmark上，四种架构相对单agent的增减</h4><p class="sub">Google，arXiv 2512.08296 v3。260种配置、6个benchmark、3家模型各3档（GPT-5系列、Gemini系列、Claude Sonnet系列）。</p></div></div>
-    <svg viewBox="0 0 560 310" aria-label="六个benchmark上四种架构相对单agent的增减"></svg>
-    <div class="legend"></div>
-    <figcaption><b>总token预算是拉平的</b>，均值每次4800个推理token：n个agent的队伍每人分到的更少，单agent拿全部、轮数更多。所以这张图读作「同样的钱，换个架构能多拿多少」。</figcaption>
-  </figure>
-  <div class="notes">
-    <ul>
-      <li><b>只有金融分析那一题多agent大赚。</b>中心化+80.8%。六题里有三题所有架构都打不过单agent。</li>
-      <li><b>没有哪个架构通吃。</b>网页导航和商务操作去中心化赢，金融中心化赢，命令行各干各的赢，规划和改bug混合最不亏。</li>
-      <li><b>单agent准确率超过约45%以后协调转负。</b>单agent已经做得好的事，别派一群人。</li>
-      <li><b>没有中心校验的架构传播错误更凶</b>：各干各的放大17.2倍，中心化4.4倍。</li>
-      <li><b>沟通的东西要能验证。</b>微软那篇（arXiv 2609.21032）在ARC-AGI-3上团队比各干各的高3倍，在Terminal-Bench 2.0上团队60.67%反而低于pass@2的62.36%。</li>
-    </ul>
-    <p class="key">任务宽、单agent做不好、结果能验证，三条都满足再上多agent。</p>
-    <p>一条存疑：它拉平的是4800个推理token，对SWE-bench、Terminal-Bench这种长任务偏小。那个−70%里有多少是预算饿着了，论文没拆开。</p>
+  <div class="grid">
+    <figure class="viz" id="f-when">
+      <div class="vh"><div><h4>多agent相对单agent的增减</h4><p class="sub">任务能并行才赚，顺序任务一律亏。</p></div></div> <div class="vh"><div><h4>六个benchmark上，各架构相对单agent的增减</h4><p class="sub">Google，arXiv 2512.08296 v3。260种配置、6个benchmark、3家模型各3档。横轴0是和单agent打平。</p></div></div>
+      <svg viewBox="0 0 560 300" aria-label="各架构相对单agent的增减"></svg>
+      <div class="legend"></div>
+      <figcaption><b>总token预算是拉平的</b>，均值每次4800个推理token：n个agent的队伍每人分到的更少，单agent拿全部、轮数更多。所以这张图读作「同样的钱，换个架构能多拿多少」。</figcaption>
+    </figure>
+    <div class="notes">
+      <ul>
+        <li><b>只有金融分析那一题多agent大赚。</b>中心化+80.8%。六题里有三题所有架构都打不过单agent。</li>
+        <li><b>没有哪个架构通吃。</b>网页导航和商务操作是去中心化赢，金融是中心化赢，命令行是各干各的赢，规划和改bug是混合最不亏。</li>
+        <li><b>单agent准确率超过约45%以后协调转负。</b>单agent已经做得好的事，别派一群人。</li>
+        <li><b>没有中心校验的架构传播错误更凶</b>：各干各的放大17.2倍，中心化4.4倍。</li>
+        <li><b>沟通的东西要能验证。</b>微软那篇（arXiv 2609.21032）在ARC-AGI-3上团队比各干各的高3倍，在Terminal-Bench 2.0上团队60.67%反而低于pass@2的62.36%。</li>
+      </ul>
+      <p class="key">任务宽、单agent做不好、结果能验证，三条都满足再上多agent。</p>
+      <p>一条存疑：它拉平的是4800个推理token，对SWE-bench、Terminal-Bench这种长任务偏小。那个−70%里有多少是「预算饿着了」，论文没拆开。</p>
+    </div>
   </div>
 </section>
 
+<!-- 6 怎么harness -->
 <section id="s6">
   <h2><span class="sn">6</span>要让一群agent高效协作，harness要管住什么</h2>
   <div class="cards">
@@ -335,7 +364,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
     <div><div class="t">有活才唤醒</div><div class="s">每轮只派就绪队列那么多人，没活就睡。</div><div class="src">LATTE的D2</div></div>
     <div><div class="t">先各自试，再合并</div><div class="s">起点好不好早期就看得出来，把人力并给领先的那组。</div><div class="src">Chai的自适应swarm；并行会话比一条长会话高264 Elo</div></div>
   </div>
-  <div class="tablewrap"><table>
+  <div class="tablewrap" style="margin-top:22px"><table>
     <thead><tr><th>LATTE里的</th><th>Cumora看板</th><th>送餐机器人fleet</th></tr></thead>
     <tbody>
       <tr><td>Lead</td><td>群主agent</td><td>云端调度agent</td></tr>
@@ -351,6 +380,7 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   <p class="lead">多agent只放fleet层。导航、避障、对桩是顺序任务，单机里塞多agent只会掉分，那是导航算法的活。</p>
 </section>
 
+<!-- 7 给评测 -->
 <section id="s7">
   <h2><span class="sn">7</span>给我们评测的三条</h2>
   <div class="notes"><ol>
@@ -361,11 +391,11 @@ footer.ar-foot a{color:var(--ink-3);border-bottom:1px solid var(--link-line);tex
   </ol></div>
 </section>
 
+</main>
 <footer class="ar-foot">
   来源：Chai，<a href="https://wenhaochai.com/blogs/predictable-swarm-scaling.html">Predictable Swarm Scaling</a>，2026-09-27 · Mieczkowski等，<a href="https://arxiv.org/abs/2605.06320">LATTE，arXiv 2605.06320</a> · Kim等，<a href="https://arxiv.org/abs/2512.08296">arXiv 2512.08296</a> · Ord，<a href="https://www.tobyord.com/writing/swarm-scaling">Swarm Scaling</a>，2026-09-21 · Park等，arXiv 2609.21032 · Liu等，arXiv 2609.15309 · Cognition，Multi-agents working，2026-04-22。<br>
   页内模拟的规则和参数在源码的Sim里，细节见pingce仓库<span class="num">5.素材/5.7</span>和<span class="num">4.汇报/4.3</span>。
 </footer>
-</main>
 </div>
 
 <script>
@@ -552,56 +582,49 @@ function comet(ctx,a,b,u,col){ /* 彗星：头在u处，尾巴拖三段 */
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});},{threshold:0.25});figs.forEach(function(f){io.observe(f);});})();
 function lineAnim(path,i){try{var L=path.getTotalLength();path.setAttribute('stroke-dasharray',L);path.setAttribute('stroke-dashoffset',L);path.classList.add('anim-line');path.style.setProperty('--d',(i||0)*120+'ms');}catch(e){}}
 
-/* ---------- 开场：1个agent对4个agent，240步 ---------- */
+/* ---------- 开场：标准swarm，一族曲线 + 滑条 ---------- */
 (function(){
-  var fig=document.getElementById('f-open'),cv=fig.querySelector('canvas'),charts=fig.querySelectorAll('svg.chart');
-  var OPT={N:240,D:12},seed=7,dag,pos,run1,run4,T1,scale,ts,c1,c4,geo,ev1,ev4,by1,by4;
-  function index(run){var by={};run.events.forEach(function(e){by[e.step]=e;});return by;}
-  var ratio={cov:null,best:null};
-  function tTo(run,kind,lv){var ev=run.events.slice().sort(function(a,b){return a.t1-b.t1;}),c=0,bv=0;
-    for(var i=0;i<ev.length;i++){c++;bv=Math.max(bv,dag.nodes[ev[i].step].value);
-      if(kind==='cov'&&c/dag.nodes.length>=lv-1e-9)return ev[i].t1;
-      if(kind==='best'&&bv/scale>=lv-1e-9)return ev[i].t1;}return Infinity;}
-  function build(){dag=S.genDAG(seed,OPT);scale=S.scaleFor(seed,OPT);run1=S.runSwarm(dag,1,seed);run4=S.runSwarm(dag,4,seed);T1=run1.total;by1=index(run1);by4=index(run4);
-    ts=[];for(var i=0;i<=200;i++)ts.push(T1*i/200);c1=S.curves(dag,run1,ts,scale);c4=S.curves(dag,run4,ts,scale);
-    var a=tTo(run1,'cov',0.5)/tTo(run4,'cov',0.5),b=tTo(run1,'best',0.8)/tTo(run4,'best',0.8);
-    ratio.cov=isFinite(a)?a:null;ratio.best=isFinite(b)?b:null;}
+  var fig=document.getElementById('f-open'),cv=fig.querySelector('canvas'),charts=fig.querySelectorAll('svg.chart'),ro=document.getElementById('open-readout'),slider=document.getElementById('open-n'),out=document.getElementById('open-n-out');
+  var NS=[1,2,4,8,16,32],OPT={N:240,D:12},seed=7,dag,pos,scale,T1,ts,runs,curvesN,geo,ni=2;
+  function build(){dag=S.genDAG(seed,OPT);scale=S.scaleFor(seed,OPT);runs=NS.map(function(n){return S.runSwarm(dag,n,seed);});T1=runs[0].total;
+    ts=[];for(var i=0;i<=200;i++)ts.push(T1*i/200);curvesN=runs.map(function(r){return S.curves(dag,r,ts,scale);});}
   function relayout(){geo=hidpi(cv);pos=layout(dag,geo.W,geo.H,16);}
-  var SPLIT=0.55;
-  function phase(p){if(p<SPLIT)return {k:1,t:T1*(p/SPLIT)};return {k:4,t:T1*((p-SPLIT)/(1-SPLIT))};}
+  function cur(){return {n:NS[ni],run:runs[ni],c:curvesN[ni]};}
   function draw(p){
-    var ph=phase(p),by=ph.k===1?by1:by4,t=ph.t,BL=0.012*T1,CM=0.35;
-    var ctx=geo.ctx;ctx.clearRect(0,0,geo.W,geo.H);
-    var best=-1,bv=-Infinity;
-    /* 边：两端都做完的深一点 */
+    var C=cur(),run=C.run,by={};run.events.forEach(function(e){by[e.step]=e;});
+    var t=p*Math.min(T1,run.total*1.04),BL=0.012*T1,CM=0.35,ctx=geo.ctx;ctx.clearRect(0,0,geo.W,geo.H);
+    var best=-1,bv=-Infinity,active=0;
     ctx.lineWidth=1;
-    dag.nodes.forEach(function(n){n.parents.forEach(function(q){var done=by[q].t1<=t&&by[n.id].t1<=t;ctx.strokeStyle=done?alpha(css('--ink-3'),0.35):alpha(css('--rule'),0.9);edge(ctx,pos[q],pos[n.id]);});});
-    /* 节点 */
-    dag.nodes.forEach(function(n){var e=by[n.id],P=pos[n.id],col=ph.k===1?css('--ch-ref'):agentColor(e.agent);
-      if(e.t1<=t){var a=clamp01((t-e.t1)/BL);var r=3.1+2.6*(1-ease(a));ctx.fillStyle=col;ctx.beginPath();ctx.arc(P.x,P.y,r,0,Math.PI*2);ctx.fill();if(n.value>bv){bv=n.value;best=n.id;}}
-      else if(e.t0<=t){var u=(t-e.t0)/(e.t1-e.t0);
+    dag.nodes.forEach(function(n){var e=by[n.id];n.parents.forEach(function(q){var done=by[q].t1<=t&&e.t1<=t;ctx.strokeStyle=done?alpha(C.n===1?css('--ink-3'):agentColor(e.agent),0.45):alpha(css('--rule'),0.9);edge(ctx,pos[q],pos[n.id]);});});
+    dag.nodes.forEach(function(n){var e=by[n.id],P=pos[n.id],col=C.n===1?css('--ink-2'):agentColor(e.agent);
+      if(e.t1<=t){var a=clamp01((t-e.t1)/BL);var r=2.8+2.6*(1-ease(a));ctx.fillStyle=col;ctx.beginPath();ctx.arc(P.x,P.y,r,0,Math.PI*2);ctx.fill();if(n.value>bv){bv=n.value;best=n.id;}}
+      else if(e.t0<=t){active++;var u=(t-e.t0)/(e.t1-e.t0);
         if(u<CM&&n.parents.length){var pr=n.parents.reduce(function(a,b){return by[a].t1>by[b].t1?a:b;});comet(ctx,pos[pr],P,u/CM,col);}
-        ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(P.x,P.y,3.2+0.8*Math.sin(u*Math.PI*6),0,Math.PI*2);ctx.stroke();ctx.lineWidth=1;}
-      else{ctx.fillStyle=css('--rule');ctx.beginPath();ctx.arc(P.x,P.y,2.2,0,Math.PI*2);ctx.fill();}});
-    if(best>=0){var B=pos[best];ctx.strokeStyle=css('--ch-best');ctx.lineWidth=2;ctx.beginPath();ctx.arc(B.x,B.y,7,0,Math.PI*2);ctx.stroke();ctx.fillStyle=alpha(css('--ch-best'),0.12);ctx.beginPath();ctx.arc(B.x,B.y,12,0,Math.PI*2);ctx.fill();}
-    ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-mono');ctx.textAlign='left';ctx.fillText((ph.k===1?'1 agent':'4 agents')+'   t = '+fmt(t/T1)+' T₁',12,geo.H-10);
-    charts.forEach(function(svg){drawChart(svg,svg.dataset.k,ph,t);});
+        ctx.strokeStyle=col;ctx.lineWidth=1.6;ctx.beginPath();ctx.arc(P.x,P.y,3+0.8*Math.sin(u*Math.PI*6),0,Math.PI*2);ctx.stroke();ctx.lineWidth=1;}
+      else{ctx.fillStyle=css('--rule');ctx.beginPath();ctx.arc(P.x,P.y,2,0,Math.PI*2);ctx.fill();}});
+    if(best>=0){var B=pos[best];ctx.fillStyle=alpha(css('--ch-best'),0.12);ctx.beginPath();ctx.arc(B.x,B.y,12,0,Math.PI*2);ctx.fill();ctx.strokeStyle=css('--ch-best');ctx.lineWidth=2;ctx.beginPath();ctx.arc(B.x,B.y,6.5,0,Math.PI*2);ctx.stroke();}
+    ctx.fillStyle=css('--ink-3');ctx.font='12px '+css('--font-mono');ctx.textAlign='left';ctx.fillText('t = '+fmt(t/T1)+' T₁',12,geo.H-10);
+    ro.innerHTML='<b>'+active+'</b>&nbsp;/ '+C.n+' 在岗';
+    charts.forEach(function(svg){drawChart(svg,svg.dataset.k,t);});
   }
-  function drawChart(svg,k,ph,t){
-    clear(svg);var W=330,H=130,L=30,Rr=10,T=8,B=24,x=function(u){return L+(W-L-Rr)*u;},y=function(v){return T+(H-T-B)*(1-v);};
+  function blue(i){ /* 规模越大越深 */ var q=i/(NS.length-1);return mix('#BFD4F7','#1A4FB8',q);}
+  function drawChart(svg,k,t){
+    clear(svg);var W=330,H=150,L=34,Rr=10,T=10,B=30,x=function(u){return L+(W-L-Rr)*u;},y=function(v){return T+(H-T-B)*(1-v);};
     el('path',{d:'M'+L+' '+T+'V'+y(0)+'H'+(W-Rr),fill:'none',stroke:css('--ch-axis')},svg);
-    [0,0.5,1].forEach(function(v){el('line',{x1:L,x2:W-Rr,y1:y(v),y2:y(v),stroke:css('--ch-grid'),'stroke-dasharray':'2 3'},svg);el('text',{x:L-6,y:y(v)+4,'text-anchor':'end','class':'fx-tick'},svg).textContent=v;});
-    [0,0.5,1].forEach(function(u){el('text',{x:x(u),y:H-7,'text-anchor':'middle','class':'fx-tick'},svg).textContent=u===1?'1 T₁':u;});
-    function path(c,upto,col,dash){var d='';for(var i=0;i<ts.length;i++){if(ts[i]>upto)break;d+=(i?'L':'M')+fmt(x(ts[i]/T1),1)+' '+fmt(y(Math.min(1,c[k][i])),1);}if(d)el('path',{d:d,fill:'none',stroke:col,'stroke-width':2.2,'stroke-linejoin':'round','stroke-dasharray':dash||'none'},svg);}
-    path(c1,ph.k===1?t:T1,css('--ch-ref'));
-    if(ph.k===4)path(c4,t,css('--ch-s1'));
-    var cur=ph.k===1?c1:c4,i=0;while(i<ts.length-1&&ts[i+1]<=t)i++;
-    el('circle',{cx:x(ts[i]/T1),cy:y(Math.min(1,cur[k][i])),r:3.5,fill:ph.k===1?css('--ch-ref'):css('--ch-s1')},svg);
+    el('line',{x1:L,x2:W-Rr,y1:y(0.5),y2:y(0.5),stroke:css('--ch-grid'),'stroke-dasharray':'2 3'},svg);
+    [0,0.5,1].forEach(function(v){el('text',{x:L-6,y:y(v)+4,'text-anchor':'end','class':'fx-tick'},svg).textContent=v;});
+    [0,0.2,0.4,0.6,0.8,1].forEach(function(u){el('text',{x:x(u),y:H-14,'text-anchor':'middle','class':'fx-tick'},svg).textContent=u;});
+    el('text',{x:(L+W-Rr)/2,y:H-2,'text-anchor':'middle','class':'fx-tick'},svg).textContent='t / T₁';
+    el('text',{x:L+4,y:T+2,'class':'yl'},svg).textContent=(k==='cov'?'覆盖度':'best score')+' (↑ 越大越好)';
+    function path(c,upto,col,w){var d='';for(var i=0;i<ts.length;i++){if(ts[i]>upto)break;d+=(i?'L':'M')+fmt(x(ts[i]/T1),1)+' '+fmt(y(Math.min(1,c[k][i])),1);}if(d)el('path',{d:d,fill:'none',stroke:col,'stroke-width':w,'stroke-linejoin':'round','stroke-linecap':'round'},svg);}
+    NS.forEach(function(n,i){if(i===ni)return;path(curvesN[i],runs[i].total,i===0?css('--ink'):blue(i),i===0?1.8:1.2);});
+    var C=cur();path(C.c,t,ni===0?css('--ink'):blue(ni),2.6);
+    var i=0;while(i<ts.length-1&&ts[i+1]<=t)i++;if(t<=C.run.total)el('circle',{cx:x(ts[i]/T1),cy:y(Math.min(1,C.c[k][i])),r:3.5,fill:ni===0?css('--ink'):blue(ni)},svg);
   }
   build();relayout();
-  var A=animator(fig,draw,16000,{extra:[['换一张DAG',function(){seed=S.mulberry32(seed*7919)()*1e9|0;build();relayout();}]],hold:1800,
-    label:function(p){var ph=phase(p);if(ph.k===1)return '第1遍 <b>1个agent</b>';
-      return '第2遍 <b>4个agent</b> · 这张图加速比 覆盖<b>'+(ratio.cov?fmt(ratio.cov,1)+'×':'—')+'</b> 最优<b>'+(ratio.best?fmt(ratio.best,1)+'×':'—')+'</b>';}});
+  var A=animator(fig,draw,12000,{extra:[['换一张DAG',function(){seed=S.mulberry32(seed*7919)()*1e9|0;build();relayout();}]],hold:1800});
+  slider.addEventListener('input',function(){ni=+slider.value;out.textContent=NS[ni];});
+  slider.addEventListener('change',function(){ni=+slider.value;out.textContent=NS[ni];A.restart();});
   anims.push(A);new ResizeObserver(function(){relayout();A.redraw();}).observe(cv);
 })();
 
@@ -774,39 +797,15 @@ function lineAnim(path,i){try{var L=path.getTotalLength();path.setAttribute('str
         el('text',{x:L+w+6,y:yy+11,'class':'lbl'},s2).textContent=v+'  '+who[j];});});})();
 })();
 
-/* ---------- 什么时候亏：六个benchmark × 四种架构 ---------- */
+/* ---------- 什么时候亏 ---------- */
 (function(){
-  var fig=document.getElementById('f-when'),svg=fig.querySelector('svg'),lg=fig.querySelector('.legend');
-  var ARCH=[['各干各的','--ch-s3'],['去中心化','--ch-s1'],['中心化','--ch-s4'],['混合','--ch-best']];
-  var ROWS=[
-    ['BrowseComp-Plus · 跨站找信息',[-35,9.2,0.2,null]],
-    ['Finance-Agent · 入门金融分析',[null,74.5,80.8,73.1]],
-    ['PlanCraft · 带约束的规划',[-70,-41.5,-50.3,-39.1]],
-    ['Workbench · 商务操作选工具',[null,5.6,-1.2,-1.2]],
-    ['SWE-bench Verified · 修issue',[-14.9,-5.4,-3.1,-2.1]],
-    ['Terminal-Bench · 命令行',[1.7,null,-19.2,null]]
-  ];
-  clear(svg);lg.innerHTML='';
-  var W=560,H=310,L=196,Rr=34,T=12,B=38,lo=-80,hi=92;
-  var x=function(v){return L+(W-L-Rr)*(v-lo)/(hi-lo);},zero=x(0),step=(H-T-B-14)/ROWS.length;
-  [-60,-30,30,60,90].forEach(function(v){el('line',{x1:x(v),x2:x(v),y1:T,y2:H-B,stroke:css('--ch-grid'),'stroke-dasharray':'2 3'},svg);});
-  el('line',{x1:zero,x2:zero,y1:T,y2:H-B+4,stroke:css('--ink-3'),'stroke-width':1.2},svg);
-  [-60,-30,0,30,60,90].forEach(function(v){el('text',{x:x(v),y:H-B+19,'text-anchor':'middle','class':'fx-tick'},svg).textContent=(v>0?'+':'')+v+'%';});
-  el('text',{x:zero,y:H-6,'text-anchor':'middle','class':'fx-axis-title'},svg).textContent='相对单agent，0 = 打平';
-  ROWS.forEach(function(r,i){var y=T+16+i*step;
-    el('line',{x1:L,x2:W-Rr,y1:y,y2:y,stroke:css('--ch-grid')},svg);
-    el('text',{x:L-10,y:y+4,'text-anchor':'end','class':'lbl strong'},svg).textContent=r[0];
-    var vals=r[1].map(function(v,j){return {v:v,j:j};}).filter(function(o){return o.v!==null;});
-    var best=vals.reduce(function(a,b){return a.v>b.v?a:b;});
-    vals.forEach(function(o,k){var c=css(ARCH[o.j][1]),isB=o===best;
-      el('line',{x1:zero,x2:x(o.v),y1:y,y2:y,stroke:c,'stroke-width':1,'stroke-opacity':.3},svg);
-      var d=el('circle',{cx:x(o.v),cy:y,r:isB?5.5:4,fill:c,stroke:css('--paper'),'stroke-width':isB?1.5:0,'class':'anim-fade'},svg);
-      d.style.setProperty('--d',(i*110+k*55)+'ms');});
-    var tx=el('text',{x:x(best.v)+(best.v>=0?11:-11),y:y+4,'text-anchor':best.v>=0?'start':'end','class':'lbl strong anim-fade'},svg);
-    tx.textContent=(best.v>0?'+':'')+best.v+'%';tx.style.setProperty('--d',(300+i*110)+'ms');});
-  ARCH.forEach(function(a){var s=document.createElement('span');s.className='li';
-    s.innerHTML='<span class="dt" style="background:'+css(a[1])+'"></span>'+a[0];lg.appendChild(s);});
-  var n=document.createElement('span');n.className='li';n.style.color=css('--ink-3');n.textContent='大圈是这一题的最好成绩';lg.appendChild(n);
+  var svg=document.querySelector('#f-when svg');var rows=[['可并行的金融推理 · 中心化协调',80.8],['动态网页导航 · 去中心化',9.2],['顺序规划 · 独立多agent',-70],['Terminal-Bench 2.0 · 团队对pass@2',-1.7]];
+  clear(svg);var W=560,H=230,L=250,Rr=56,zero=L+(W-L-Rr)*0.5,sc=(W-L-Rr)*0.5/90;
+  el('line',{x1:zero,x2:zero,y1:10,y2:H-30,stroke:css('--ink-3')},svg);
+  rows.forEach(function(r,i){var y=22+i*46,w=Math.abs(r[1])*sc,pos=r[1]>=0,x=pos?zero:zero-w;el('text',{x:L-10,y:y+15,'text-anchor':'end','class':'lbl strong'},svg).textContent=r[0];
+    var b=el('rect',{x:x,y:y,width:Math.max(w,1.5),height:24,rx:2,fill:pos?css('--ch-s1'):css('--ch-best'),'class':'anim-barx'},svg);b.style.setProperty('--d',(i*140)+'ms');if(!pos)b.style.transformOrigin='100% 50%';
+    var t=el('text',{x:pos?x+w+6:x-6,y:y+16,'text-anchor':pos?'start':'end','class':'lbl strong anim-fade'},svg);t.textContent=(pos?'+':'')+r[1]+'%';t.style.setProperty('--d',(300+i*140)+'ms');});
+  el('text',{x:zero,y:H-10,'text-anchor':'middle','class':'fx-axis-title'},svg).textContent='相对单agent，0 = 一样';
 })();
 
 /* ---------- 目录高亮 ---------- */
@@ -814,3 +813,4 @@ function lineAnim(path,i){try{var L=path.getTotalLength();path.setAttribute('str
   var io=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){var i=secs.indexOf(e.target);links.forEach(function(a,k){a.classList.toggle('active',k===i);});}});},{rootMargin:'-20% 0px -70% 0px'});secs.forEach(function(s){if(s)io.observe(s);});})();
 })();
 </script>
+
